@@ -1,0 +1,35 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspace:cached
+    command: sleep infinity
+    environment:
+      DATABASE_URL: postgresql://papertrail:papertrail@db:5432/papertrail
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: papertrail
+      POSTGRES_PASSWORD: papertrail
+      POSTGRES_DB: papertrail
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U papertrail"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Deliberately no `ports:` mapping - each worktree's devcontainer is opened
+    # independently, so a fixed host port would collide across agents.
+
+volumes:
+  pgdata:
+    # No explicit `name:` - Compose auto-prefixes this with the project name
+    # (<worktree-basename>_devcontainer), giving every worktree its own volume.

@@ -1,0 +1,29 @@
+{
+  "name": "papertrail",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspace",
+  "remoteUser": "vscode",
+
+  "features": {
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+  },
+
+  // Shared across every worktree of this project so you only log in once.
+  // Trade-off: concurrent agents share ~/.claude session/history files. If you'd
+  // rather each worktree be fully independent (separate login), swap for
+  // "source=papertrail-claude-config-${devcontainerId}" instead.
+  "mounts": [
+    "source=papertrail-claude-config,target=/home/vscode/.claude,type=volume"
+  ],
+
+  // A brand-new worktree/scaffold has no pyproject.toml yet on first boot -
+  // don't fail on that, and don't mask a genuine `uv sync` failure either.
+  "postCreateCommand": "bash -c 'if [ -f pyproject.toml ]; then uv sync; else echo \"No pyproject.toml yet - skipping uv sync\"; fi'",
+
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python", "charliermarsh.ruff"]
+    }
+  }
+}
