@@ -18,9 +18,7 @@
     "source=papertrail-claude-config,target=/home/vscode/.claude,type=volume"
   ],
 
-  // A brand-new worktree/scaffold has no pyproject.toml yet on first boot -
-  // don't fail on that, and don't mask a genuine `uv sync` failure either.
-  "postCreateCommand": "bash -c 'if [ -f pyproject.toml ]; then uv sync; else echo \"No pyproject.toml yet - skipping uv sync\"; fi'",
+  "postCreateCommand": "bash .devcontainer/postCreate.sh",
 
   "customizations": {
     "vscode": {
