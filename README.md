@@ -34,16 +34,23 @@ Two things were deliberately left out to keep this simple, worth knowing about:
 
 ### How to use it
 
-**One-time host setup** (Docker isn't installed by default):
+**Prerequisites** (none of these are installed by default on a fresh machine):
 
-```bash
-# Docker Engine (see https://docs.docker.com/engine/install/ubuntu/ for the full apt-repo steps)
-sudo usermod -aG docker "$USER"   # log out/in afterwards so this takes effect
-code --install-extension ms-vscode-remote.remote-containers
-```
+- **Docker Engine**, with your user able to run `docker` without `sudo` (see
+  [docs.docker.com/engine/install/ubuntu](https://docs.docker.com/engine/install/ubuntu/), then
+  `sudo usermod -aG docker "$USER"` and log out/in for it to take effect).
+- **Node.js/npm** on your `PATH`. This is all `scripts/agent.sh` needs on the host — it drives
+  `@devcontainers/cli` via `npx --yes`, which fetches the CLI on first run, so there's no global
+  npm install to manage. Recommended install method:
+  [nvm](https://github.com/nvm-sh/nvm) (`nvm install --lts`), since it needs no `sudo` and keeps
+  Node upgrades out of the system package manager's way.
+- **git** (already present on most dev machines; needed for worktrees).
+- Optional, only if you want the point-and-click "Reopen in Container" workflow in the editor
+  instead of `scripts/agent.sh`: VS Code plus the Dev Containers extension
+  (`code --install-extension ms-vscode-remote.remote-containers`).
 
-`scripts/agent.sh` drives the `@devcontainers/cli` via `npx`, so no global npm install is required —
-only Node/npm need to be on your PATH.
+Everything else — the Claude Code CLI, Python, `uv`, Postgres — lives inside the devcontainer and
+is installed automatically per-agent; nothing else is needed on the host.
 
 **Start a new agent on its own task:**
 
