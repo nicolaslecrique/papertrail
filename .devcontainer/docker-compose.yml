@@ -33,11 +33,3 @@ volumes:
   pgdata:
     # No explicit `name:` - Compose auto-prefixes this with the project name
     # (<worktree-basename>_devcontainer), giving every worktree its own volume.
-
-  # devcontainer.json mounts this into every worktree's container at the same
-  # path so they all share one Claude Code login. Without `external: true`,
-  # Compose would auto-prefix it with the project name just like `pgdata`
-  # above - giving every worktree its own separate (and initially empty)
-  # volume instead of actually sharing one.
-  papertrail-claude-config:
-    external: true

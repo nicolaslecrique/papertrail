@@ -58,12 +58,6 @@ case "$COMMAND" in
       exit 1
     fi
 
-    # devcontainer.json mounts this as an `external` volume so every worktree's
-    # container shares the same Claude Code login - `external` means Compose
-    # expects it to already exist rather than auto-creating (and per-project-
-    # prefixing) it, so ensure it's there before the first agent ever runs.
-    docker volume inspect papertrail-claude-config >/dev/null 2>&1 || docker volume create papertrail-claude-config >/dev/null
-
     mkdir -p "$WORKTREES_ROOT"
     echo "==> Creating worktree at $WORKTREE_DIR on branch $BRANCH"
     # No base ref given: branches from whatever commit is currently checked
