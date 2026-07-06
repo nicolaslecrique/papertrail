@@ -1,0 +1,62 @@
+[project]
+name = "papertrail"
+version = "0.1.0"
+description = "Tool to study the manipulation of science by lobbies"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "jinja2",
+    "python-multipart",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-playwright",
+    "playwright",
+    "httpx",
+    "pyrefly",
+    "ruff",
+]
+
+[tool.uv]
+# This is an application, not a distributable library: don't try to build/install
+# the project itself (no build backend needed). `uv run` still puts the repo root
+# on sys.path, so `import app` works.
+package = false
+
+[tool.pytest.ini_options]
+# The project is not installed (see [tool.uv] package = false), so put the repo
+# root on sys.path for `import app` and only collect tests from tests/.
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.pyrefly]
+preset = "strict"
+project-includes = ["app", "tests"]
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["ALL"]
+# Only rules that conflict with `ruff format` or with each other are silenced;
+# everything else under ALL is satisfied by writing compliant code.
+ignore = [
+    "COM812", # trailing comma — handled by the formatter
+    "ISC001", # implicit string concatenation — conflicts with the formatter
+    "D203",   # one-blank-line-before-class — conflicts with D211
+    "D213",   # multi-line-summary-second-line — conflicts with D212
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = [
+    "S101",    # asserts are the point of a test
+    "PLR2004", # magic values (200, ...) are fine in test assertions
+    "INP001",  # tests/ is intentionally not a package
+    "D100",    # module docstrings not required for tests
+    "D103",    # docstrings not required for every test function
+    "D104",
+]

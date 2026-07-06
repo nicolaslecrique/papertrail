@@ -1,0 +1,9 @@
+/*
+ * Source for the committed, served stylesheet app/static/app.css.
+ * Rebuild after changing daisyUI/Tailwind classes in the templates:
+ *   see the "Rebuilding the CSS" section of AGENTS.md.
+ * The build is a one-off; it is intentionally NOT part of scripts/check.sh.
+ */
+@import "tailwindcss";
+@plugin "daisyui";
+@source "../templates";

@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv sync *)",
+      "Bash(uv run *)",
+      "Bash(curl -fsSL https://cdn.jsdelivr.net/npm/htmx.org@2/dist/htmx.min.js -o app/static/htmx.min.js)"
+    ]
+  }
+}
