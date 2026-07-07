@@ -1,9 +1,17 @@
 {
   "name": "papertrail",
-  "dockerComposeFile": "docker-compose.yml",
+  // docker-compose.git.yml is generated on the host by initializeCommand
+  // (below) and bind-mounts the git common dir so in-container git works from a
+  // worktree checkout. It's git-ignored and per-machine, hence generated rather
+  // than committed. Listing it here (not just via scripts/agent.sh) means the
+  // mount is also applied when the container is brought up from VS Code's
+  // "Reopen in Container", which only ever reads this committed config.
+  "dockerComposeFile": ["docker-compose.yml", "docker-compose.git.yml"],
   "service": "app",
   "workspaceFolder": "/workspace",
   "remoteUser": "vscode",
+
+  "initializeCommand": "bash .devcontainer/gen-git-mount.sh",
 
   "features": {
     "ghcr.io/devcontainers/features/node:1": {},
