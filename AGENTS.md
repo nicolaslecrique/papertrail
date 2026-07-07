@@ -48,7 +48,7 @@ the type checker, or delete tests to make it pass. New behavior needs new tests.
 - **Tests:** pytest + pytest-playwright (e2e), coverage via pytest-cov
 - **Web:** FastAPI, htmx + Jinja2 templates, daisyUI components
 - **Frontend build tooling:** pnpm (`package.json` + `pnpm-lock.yaml`), Node baked
-  into the devcontainer — see "When (and how) to rebuild the frontend assets"
+  into the devcontainer — see [docs/frontend-assets.md](docs/frontend-assets.md)
 
 ## Layout
 
@@ -64,14 +64,14 @@ app/
     templates/partials/       htmx fragments
     static/htmx.min.js        vendored htmx (committed)
     static/app.css            vendored, prebuilt Tailwind+daisyUI CSS (committed)
-    static/app.tailwind.css   source for app.css (see "When to rebuild")
+    static/app.tailwind.css   source for app.css (see docs/frontend-assets.md)
     static/assets.sha256      fingerprint of the build inputs (staleness gate)
 tests/                        unit tests + conftest live-server fixture + e2e
 scripts/check.sh              the quality gate
 scripts/assets-fingerprint.sh hash of frontend build inputs (build + gate share it)
 package.json, pnpm-lock.yaml  frontend build deps (Tailwind/daisyUI, htmx) - pinned, committed
 .devcontainer/                image (uv + Node/pnpm + Chromium baked in) + compose (app + Postgres)
-docs/                         extra docs (e.g. the multi-agent devcontainer workflow)
+docs/                         extra docs (e.g. frontend assets, multi-agent devcontainer workflow)
 ```
 
 ## Architecture
@@ -126,63 +126,10 @@ chase 100% for its own sake. New behavior still needs new tests.
 
 ## Frontend assets are vendored (offline, no CDN)
 
-htmx and the Tailwind/daisyUI CSS are committed under `app/web/static/` and served
-by FastAPI, so e2e tests are deterministic and need no network. They're built from
-JS/CSS dependencies managed like any other dependency: `package.json` declares them,
-`pnpm-lock.yaml` pins their exact resolved versions (commit both), and `pnpm` (baked
-into the devcontainer, see `.devcontainer/Dockerfile`) installs and builds them.
-
-**The committed `app/web/static/*` files are what ships** — `pnpm run build` does
-*not* run inside `check.sh` (the gate stays Python-only and fast, and needs no
-Node). But you can't silently ship a stale asset either: `check.sh` recomputes a
-fingerprint of the build *inputs* and compares it to the committed
-`app/web/static/assets.sha256`, so forgetting to rebuild fails the gate (see below).
-
-### When (and how) to rebuild the frontend assets
-
-Rebuild whenever you change a build **input**:
-
-- add / change / remove a daisyUI or Tailwind class in `app/web/templates/**`
-  (that's what Tailwind tree-shakes against),
-- edit `app/web/static/app.tailwind.css` (the Tailwind entry / config),
-- bump a frontend dependency (`tailwindcss`, `daisyui`, `htmx.org`) — i.e. anything
-  that changes `pnpm-lock.yaml`.
-
-You don't need to rebuild for anything else (Python changes, prose, non-template
-files don't affect the output). If in doubt, run `check.sh`: step 3 tells you if a
-rebuild is owed.
-
-```bash
-pnpm install   # sync node_modules with package.json / pnpm-lock.yaml
-pnpm run build # regenerates app.css, htmx.min.js AND assets.sha256
-```
-
-Then `git diff app/web/static/` to review the regenerated output before committing it,
-and commit `app.css`, `htmx.min.js`, and `assets.sha256` together.
-
-`pnpm run build` runs three scripts (see `package.json`):
-- `build:css` — runs the Tailwind CLI over `app/web/static/app.tailwind.css`,
-  tree-shaken to classes actually used in `app/web/templates`, writing
-  `app/web/static/app.css`. (The `source(none)` in `app.tailwind.css` restricts
-  scanning to the explicit `@source` templates — **keep it**; without it Tailwind
-  auto-scans the whole repo and leaks prose that happens to match class names, e.g.
-  daisyUI's `diff`, into the shipped CSS, making the build non-deterministic.)
-- `build:js` — copies `htmx.org`'s built bundle from `node_modules` to
-  `app/web/static/htmx.min.js`.
-- `build:hash` — writes `app/web/static/assets.sha256`, the input fingerprint that
-  `check.sh` uses to detect a stale build. Both sides compute it via the single
-  `scripts/assets-fingerprint.sh`, so they can never disagree.
-
-### Adding a new JS dependency
-
-```bash
-pnpm add <pkg>            # runtime dependency (e.g. another vendored JS library)
-pnpm add -D <pkg>         # build-only dependency (e.g. a new Tailwind plugin)
-```
-
-Then wire it into a `build:*` script in `package.json` (mirroring `build:js`'s
-copy-from-`node_modules` pattern, or `build:css` if it's a CSS build input) and
-run `pnpm run build` to regenerate the vendored output.
+htmx and the Tailwind/daisyUI CSS are committed under `app/web/static/` and built
+from pinned JS/CSS dependencies via pnpm. See
+[docs/frontend-assets.md](docs/frontend-assets.md) for how the build works, when
+to rebuild, and how to add a new JS dependency.
 
 ## Security checks
 
