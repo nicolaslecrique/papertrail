@@ -7,12 +7,16 @@ from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from jinja2 import StrictUndefined
 
 _BASE_DIR = Path(__file__).parent
 
 app = FastAPI(title="papertrail")
 app.mount("/static", StaticFiles(directory=_BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=_BASE_DIR / "templates")
+# Fail loudly on a typo'd or missing template variable instead of silently
+# rendering a blank; a missing partial still raises TemplateNotFound.
+templates.env.undefined = StrictUndefined
 
 
 @app.get("/", response_class=HTMLResponse)

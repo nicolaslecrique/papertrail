@@ -21,6 +21,12 @@ uv run ruff check .
 echo "==> pyrefly check (strict)"
 uv run pyrefly check
 
+echo "==> djlint --check (template formatting)"
+uv run djlint app/templates --check
+
+echo "==> djlint --lint (template well-formedness)"
+uv run djlint app/templates --lint
+
 echo "==> pytest (unit + e2e)"
 uv run pytest
 

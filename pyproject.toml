@@ -19,6 +19,7 @@ dev = [
     "httpx",
     "pyrefly",
     "ruff",
+    "djlint>=1.40.3",
 ]
 
 [tool.uv]
@@ -36,6 +37,18 @@ testpaths = ["tests"]
 [tool.pyrefly]
 preset = "strict"
 project-includes = ["app", "tests"]
+
+[tool.djlint]
+# Formatter + linter for the Jinja + HTML templates under app/templates.
+# `--check` owns template formatting (like ruff format owns Python); `--lint`
+# catches well-formedness problems (unclosed/mismatched tags, bad nesting).
+# Run `uv run djlint app/templates --reformat` to apply formatting.
+profile = "jinja"
+# Silenced rules (not relevant to this app):
+#   H030/H031 - SEO <meta> description/keywords; this is an internal tool.
+#   J004      - wants Flask/Django url_for('static'); FastAPI serves /static
+#               directly, so the literal href is correct here.
+ignore = "H030,H031,J004"
 
 [tool.ruff]
 target-version = "py312"

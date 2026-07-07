@@ -16,10 +16,14 @@ Before you consider **any** change complete, run:
 It must exit 0. It runs, in order:
 
 1. `uv sync` — dependencies match `pyproject.toml` / `uv.lock`
-2. `ruff format --check .` — formatting
+2. `ruff format --check .` — Python formatting
 3. `ruff check .` — linting (`select = ["ALL"]`)
 4. `pyrefly check` — type checking (strict preset)
-5. `pytest` — unit tests + Playwright e2e tests
+5. `djlint app/templates --check` — template formatting
+6. `djlint app/templates --lint` — template well-formedness (unclosed tags, ...)
+7. `pytest` — unit tests + Playwright e2e tests
+
+Reformat templates with `uv run djlint app/templates --reformat`.
 
 If it fails, fix the code (or the test) until it passes. Do not weaken the linter,
 the type checker, or delete tests to make it pass. New behavior needs new tests.
