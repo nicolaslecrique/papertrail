@@ -26,11 +26,10 @@ It must exit 0. It runs, in order:
 8. `pyrefly check` — type checking (strict preset)
 9. `deptry .` — dependency hygiene (unused / missing / transitive / misplaced deps)
 10. `lint-imports` — architecture layering contracts (see "Architecture" below)
-11. `djlint app/web/templates --check` — template formatting
+11. `djlint app/web/templates --check` — template formatting (reformat with
+    `uv run djlint app/web/templates --reformat`)
 12. `djlint app/web/templates --lint` — template well-formedness (unclosed tags, ...)
 13. `pytest` — unit + Playwright e2e tests, with a coverage report (see "Coverage")
-
-Reformat templates with `uv run djlint app/web/templates --reformat`.
 
 If it fails, fix the code (or the test) until it passes. Do not weaken the linter,
 the type checker, or delete tests to make it pass. New behavior needs new tests.
@@ -42,8 +41,8 @@ the type checker, or delete tests to make it pass. New behavior needs new tests.
 - **Linter:** Ruff, `select = ["ALL"]` (minimal, justified ignores only)
 - **Formatter:** `ruff format`
 - **Dependency hygiene:** deptry (unused/missing/transitive/misplaced deps)
-- **Dependency vulnerabilities:** `uv audit` (native, preview; scans `uv.lock` against OSV)
-- **Secret scanning:** gitleaks (full git history, baked into the devcontainer image)
+- **Dependency vulnerabilities:** `uv audit` (see docs/security-checks.md)
+- **Secret scanning:** gitleaks (see docs/security-checks.md)
 - **Architecture enforcement:** import-linter (layering contracts in `pyproject.toml`)
 - **Tests:** pytest + pytest-playwright (e2e), coverage via pytest-cov
 - **Web:** FastAPI, htmx + Jinja2 templates, daisyUI components
@@ -71,7 +70,7 @@ scripts/check.sh              the quality gate
 scripts/assets-fingerprint.sh hash of frontend build inputs (build + gate share it)
 package.json, pnpm-lock.yaml  frontend build deps (Tailwind/daisyUI, htmx) - pinned, committed
 .devcontainer/                image (uv + Node/pnpm + Chromium baked in) + compose (app + Postgres)
-docs/                         extra docs (e.g. frontend assets, multi-agent devcontainer workflow)
+docs/                         extra docs (e.g. frontend assets, security checks, multi-agent devcontainer workflow)
 ```
 
 ## Architecture
@@ -116,13 +115,12 @@ uv add --dev <pkg>      # dev/test dependency
 
 ## Coverage
 
-`pytest` prints a coverage report (with the missing line numbers) on every run.
-It is **report-only** — there is deliberately no `--cov-fail-under` gate, so a low
-number never blocks you. Instead, **use the report as a checklist while coding**:
-after adding or changing behavior, read the `Missing` column and ask whether each
-uncovered line is an important path that deserves a test (an error branch, an edge
-case, a new domain rule) or genuinely trivial. Add the tests that matter; don't
-chase 100% for its own sake. New behavior still needs new tests.
+`pytest` prints a coverage report (with missing line numbers) on every run, but
+there's no `--cov-fail-under` gate — a low number never blocks you. Instead, use
+the `Missing` column as a checklist: for each uncovered line, decide whether it's
+an important path (error branch, edge case, new domain rule) worth a test, or
+genuinely trivial. Don't chase 100% for its own sake, but new behavior still
+needs new tests.
 
 ## Frontend assets are vendored (offline, no CDN)
 
@@ -133,25 +131,15 @@ to rebuild, and how to add a new JS dependency.
 
 ## Security checks
 
-- **Secrets:** `gitleaks git` scans the full git history (not just the working tree)
-  on every `check.sh` run, so a secret is caught even if it's later removed from
-  HEAD. The binary is baked into the devcontainer image (`.devcontainer/Dockerfile`,
-  same pinned-static-binary pattern as `uv`) — if `check.sh` reports gitleaks
-  missing, rebuild the devcontainer. If it ever flags a genuine false positive
-  (e.g. a low-entropy dev-only placeholder), add a `.gitleaks.toml` allowlist
-  entry with a comment explaining why — do not skip the step. If it flags a real
-  secret, rotate the credential; removing it from the current file is not enough
-  once it's in history.
-- **Dependency vulnerabilities:** `uv audit` scans `uv.lock` against the OSV
-  database. It's a native `uv` subcommand (currently preview, hence
-  `--preview-features audit-command` in `check.sh`) that reuses `uv`'s already-
-  resolved lockfile instead of re-resolving dependencies, so it's fast. If it
-  flags a real vulnerability, bump the affected dependency (`uv lock --upgrade-package
-  <pkg>`); don't ignore or suppress a finding without understanding it first.
+`check.sh` runs secret scanning (gitleaks, full git history) and dependency
+vulnerability scanning (`uv audit`). See
+[docs/security-checks.md](docs/security-checks.md) for how each works and
+what to do when one flags something.
 
 ## Playwright / Chromium
 
-Chromium and its OS libraries are baked into the devcontainer image (see
-`.devcontainer/Dockerfile`, `PLAYWRIGHT_BROWSERS_PATH=/ms-playwright`) so container
-startup stays fast and e2e tests run offline. The `playwright` version pinned in the
-Dockerfile **must match** the `playwright` version in `uv.lock`; bump both together.
+Chromium and its OS libraries are baked into the devcontainer image
+(`.devcontainer/Dockerfile`, `PLAYWRIGHT_BROWSERS_PATH=/ms-playwright`) so
+container startup stays fast and e2e tests run offline. Bump the `playwright`
+version in the Dockerfile and `uv.lock` together — check.sh step 2 fails if
+they drift.
