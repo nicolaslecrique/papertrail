@@ -26,6 +26,18 @@ if [ "$DOCKERFILE_PLAYWRIGHT" != "$LOCKFILE_PLAYWRIGHT" ]; then
   exit 1
 fi
 
+echo "==> gitleaks (secret scanning, full git history)"
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "error: gitleaks not found on PATH. It's baked into the devcontainer image" >&2
+  echo "       (.devcontainer/Dockerfile) - rebuild the devcontainer, or install" >&2
+  echo "       the same pinned version locally." >&2
+  exit 1
+fi
+gitleaks git --no-banner
+
+echo "==> uv audit (known dependency vulnerabilities)"
+uv audit --preview-features audit-command
+
 echo "==> ruff format --check"
 uv run ruff format --check .
 

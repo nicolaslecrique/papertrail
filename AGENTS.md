@@ -17,14 +17,16 @@ It must exit 0. It runs, in order:
 
 1. `uv sync` — dependencies match `pyproject.toml` / `uv.lock`
 2. playwright version check — the Dockerfile's baked-Chromium pin must match `uv.lock`
-3. `ruff format --check .` — Python formatting
-4. `ruff check .` — linting (`select = ["ALL"]`)
-5. `pyrefly check` — type checking (strict preset)
-6. `deptry .` — dependency hygiene (unused / missing / transitive / misplaced deps)
-7. `lint-imports` — architecture layering contracts (see "Architecture" below)
-8. `djlint app/web/templates --check` — template formatting
-9. `djlint app/web/templates --lint` — template well-formedness (unclosed tags, ...)
-10. `pytest` — unit + Playwright e2e tests, with a coverage report (see "Coverage")
+3. `gitleaks git` — secret scanning over the full git history
+4. `uv audit` — known vulnerabilities in resolved dependencies
+5. `ruff format --check .` — Python formatting
+6. `ruff check .` — linting (`select = ["ALL"]`)
+7. `pyrefly check` — type checking (strict preset)
+8. `deptry .` — dependency hygiene (unused / missing / transitive / misplaced deps)
+9. `lint-imports` — architecture layering contracts (see "Architecture" below)
+10. `djlint app/web/templates --check` — template formatting
+11. `djlint app/web/templates --lint` — template well-formedness (unclosed tags, ...)
+12. `pytest` — unit + Playwright e2e tests, with a coverage report (see "Coverage")
 
 Reformat templates with `uv run djlint app/web/templates --reformat`.
 
@@ -38,6 +40,8 @@ the type checker, or delete tests to make it pass. New behavior needs new tests.
 - **Linter:** Ruff, `select = ["ALL"]` (minimal, justified ignores only)
 - **Formatter:** `ruff format`
 - **Dependency hygiene:** deptry (unused/missing/transitive/misplaced deps)
+- **Dependency vulnerabilities:** `uv audit` (native, preview; scans `uv.lock` against OSV)
+- **Secret scanning:** gitleaks (full git history, baked into the devcontainer image)
 - **Architecture enforcement:** import-linter (layering contracts in `pyproject.toml`)
 - **Tests:** pytest + pytest-playwright (e2e), coverage via pytest-cov
 - **Web:** FastAPI, htmx + Jinja2 templates, daisyUI components
@@ -136,6 +140,24 @@ printf '@import "tailwindcss";\n@plugin "daisyui";\n@source "%s/app/web/template
 "$BUILD/node_modules/.bin/tailwindcss" \
   -i "$BUILD/input.css" -o app/web/static/app.css --minify
 ```
+
+## Security checks
+
+- **Secrets:** `gitleaks git` scans the full git history (not just the working tree)
+  on every `check.sh` run, so a secret is caught even if it's later removed from
+  HEAD. The binary is baked into the devcontainer image (`.devcontainer/Dockerfile`,
+  same pinned-static-binary pattern as `uv`) — if `check.sh` reports gitleaks
+  missing, rebuild the devcontainer. If it ever flags a genuine false positive
+  (e.g. a low-entropy dev-only placeholder), add a `.gitleaks.toml` allowlist
+  entry with a comment explaining why — do not skip the step. If it flags a real
+  secret, rotate the credential; removing it from the current file is not enough
+  once it's in history.
+- **Dependency vulnerabilities:** `uv audit` scans `uv.lock` against the OSV
+  database. It's a native `uv` subcommand (currently preview, hence
+  `--preview-features audit-command` in `check.sh`) that reuses `uv`'s already-
+  resolved lockfile instead of re-resolving dependencies, so it's fast. If it
+  flags a real vulnerability, bump the affected dependency (`uv lock --upgrade-package
+  <pkg>`); don't ignore or suppress a finding without understanding it first.
 
 ## Playwright / Chromium
 

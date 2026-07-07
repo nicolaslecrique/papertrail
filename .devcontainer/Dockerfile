@@ -5,6 +5,10 @@ FROM mcr.microsoft.com/devcontainers/python:3.12
 COPY --from=ghcr.io/astral-sh/uv:0.11.26 /uv /uvx /usr/local/bin/
 ENV UV_LINK_MODE=copy
 
+# gitleaks (secret scanning, run by scripts/check.sh): same static-binary-copy
+# trick as uv above, no curl/pip step, fully reproducible via the version pin.
+COPY --from=zricethezav/gitleaks:v8.30.1 /usr/bin/gitleaks /usr/local/bin/gitleaks
+
 # Bake Playwright's Chromium + its OS libraries into the image so the
 # devcontainer starts fast (no ~150MB browser download during `uv sync`) and
 # e2e tests run offline. Browsers install to PLAYWRIGHT_BROWSERS_PATH, which
