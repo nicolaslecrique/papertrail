@@ -20,6 +20,9 @@ dev = [
     "pyrefly",
     "ruff",
     "djlint>=1.40.3",
+    "pytest-cov>=7.1.0",
+    "deptry>=0.25.1",
+    "import-linter>=2.13",
 ]
 
 [tool.uv]
@@ -33,16 +36,29 @@ package = false
 # root on sys.path for `import app` and only collect tests from tests/.
 pythonpath = ["."]
 testpaths = ["tests"]
+# Coverage is measured on every run and printed (with the missing line numbers),
+# but is intentionally NOT enforced with --cov-fail-under: the report is a tool
+# for the author, not a gate. Use it to spot important untested paths. See the
+# "Coverage" note in AGENTS.md.
+addopts = ["--cov=app", "--cov-report=term-missing:skip-covered"]
+
+[tool.coverage.run]
+branch = true
+source = ["app"]
+
+[tool.coverage.report]
+# Don't count lines that can never run at test time as "missing".
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError"]
 
 [tool.pyrefly]
 preset = "strict"
 project-includes = ["app", "tests"]
 
 [tool.djlint]
-# Formatter + linter for the Jinja + HTML templates under app/templates.
+# Formatter + linter for the Jinja + HTML templates under app/web/templates.
 # `--check` owns template formatting (like ruff format owns Python); `--lint`
 # catches well-formedness problems (unclosed/mismatched tags, bad nesting).
-# Run `uv run djlint app/templates --reformat` to apply formatting.
+# Run `uv run djlint app/web/templates --reformat` to apply formatting.
 profile = "jinja"
 # Silenced rules (not relevant to this app):
 #   H030/H031 - SEO <meta> description/keywords; this is an internal tool.
@@ -73,3 +89,61 @@ ignore = [
     "D103",    # docstrings not required for every test function
     "D104",
 ]
+
+# ---------------------------------------------------------------------------
+# deptry — dependency hygiene (unused / missing / transitive / misplaced deps).
+# ---------------------------------------------------------------------------
+[tool.deptry]
+# deptry reads the PEP 735 `[dependency-groups]` table natively, so the `dev`
+# group is already treated as development-only (test tools like pytest and
+# playwright are not reported as unused production dependencies).
+
+[tool.deptry.per_rule_ignores]
+# DEP002 = declared but never imported. These are legitimately not imported:
+#   uvicorn        - the ASGI server, launched from the CLI / conftest, not a lib
+#   python-multipart - pulled in *by* FastAPI to parse form posts; never imported
+DEP002 = ["uvicorn", "python-multipart"]
+
+# ---------------------------------------------------------------------------
+# import-linter — architecture contracts. Enforces the layered design:
+#   web (FastAPI/htmx)  →  domain (pure Python)  →  db (Postgres/SQLAlchemy)
+# The web layer calls the domain; the domain calls the db. The web must never
+# reach the db directly, and lower layers never import higher ones. The domain
+# stays free of any framework so its logic is testable in isolation.
+# Run: `lint-imports`.
+# ---------------------------------------------------------------------------
+[tool.importlinter]
+root_package = "app"
+# Required so the "forbidden" contracts below can name external packages
+# (fastapi, jinja2, ...) as modules the domain/db layers must not import.
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Layered architecture (main → web → domain → db)"
+type = "layers"
+layers = ["app.main", "app.web", "app.domain", "app.db"]
+
+[[tool.importlinter.contracts]]
+name = "Web layer goes through the domain (never straight to the db)"
+type = "forbidden"
+source_modules = ["app.web"]
+forbidden_modules = ["app.db"]
+# Only ban a *direct* web → db import. The intended web → domain → db chain is an
+# indirect import and must stay allowed once the domain actually calls the db.
+allow_indirect_imports = "true"
+
+[[tool.importlinter.contracts]]
+name = "Domain layer is pure Python (no web framework, no direct persistence)"
+type = "forbidden"
+source_modules = ["app.domain"]
+forbidden_modules = ["fastapi", "starlette", "jinja2", "sqlalchemy"]
+# Ban only *direct* framework imports in the domain. Reaching SQLAlchemy
+# indirectly via app.db (domain → db → sqlalchemy) is the whole point of the db
+# layer and must remain allowed.
+allow_indirect_imports = "true"
+
+[[tool.importlinter.contracts]]
+name = "Database layer is independent of the web layer"
+type = "forbidden"
+source_modules = ["app.db"]
+forbidden_modules = ["fastapi", "starlette", "jinja2"]

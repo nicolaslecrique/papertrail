@@ -19,11 +19,13 @@ It must exit 0. It runs, in order:
 2. `ruff format --check .` — Python formatting
 3. `ruff check .` — linting (`select = ["ALL"]`)
 4. `pyrefly check` — type checking (strict preset)
-5. `djlint app/templates --check` — template formatting
-6. `djlint app/templates --lint` — template well-formedness (unclosed tags, ...)
-7. `pytest` — unit tests + Playwright e2e tests
+5. `deptry .` — dependency hygiene (unused / missing / transitive / misplaced deps)
+6. `lint-imports` — architecture layering contracts (see "Architecture" below)
+7. `djlint app/web/templates --check` — template formatting
+8. `djlint app/web/templates --lint` — template well-formedness (unclosed tags, ...)
+9. `pytest` — unit + Playwright e2e tests, with a coverage report (see "Coverage")
 
-Reformat templates with `uv run djlint app/templates --reformat`.
+Reformat templates with `uv run djlint app/web/templates --reformat`.
 
 If it fails, fix the code (or the test) until it passes. Do not weaken the linter,
 the type checker, or delete tests to make it pass. New behavior needs new tests.
@@ -34,24 +36,56 @@ the type checker, or delete tests to make it pass. New behavior needs new tests.
 - **Type checker:** Pyrefly, strict (`[tool.pyrefly] preset = "strict"`)
 - **Linter:** Ruff, `select = ["ALL"]` (minimal, justified ignores only)
 - **Formatter:** `ruff format`
-- **Tests:** pytest + pytest-playwright (e2e)
+- **Dependency hygiene:** deptry (unused/missing/transitive/misplaced deps)
+- **Architecture enforcement:** import-linter (layering contracts in `pyproject.toml`)
+- **Tests:** pytest + pytest-playwright (e2e), coverage via pytest-cov
 - **Web:** FastAPI, htmx + Jinja2 templates, daisyUI components
 
 ## Layout
 
 ```
 app/
-  main.py                     FastAPI app + routes (GET /, POST /greet)
-  templates/index.html        full page (daisyUI + htmx)
-  templates/partials/         htmx fragments
-  static/htmx.min.js          vendored htmx (committed)
-  static/app.css              vendored, prebuilt Tailwind+daisyUI CSS (committed)
-  static/app.tailwind.css     source for app.css (see "Rebuilding the CSS")
+  main.py                     composition root: builds the FastAPI app, wires layers
+  domain/                     pure-Python business logic (no framework imports)
+    greeting.py               e.g. normalize_name()
+  db/                         the only place that talks to Postgres (empty for now)
+  web/                        presentation only: FastAPI routes + htmx + templates
+    routes.py                 APIRouter (GET /, POST /greet) + Jinja2Templates
+    templates/index.html      full page (daisyUI + htmx)
+    templates/partials/       htmx fragments
+    static/htmx.min.js        vendored htmx (committed)
+    static/app.css            vendored, prebuilt Tailwind+daisyUI CSS (committed)
+    static/app.tailwind.css   source for app.css (see "Rebuilding the CSS")
 tests/                        unit tests + conftest live-server fixture + e2e
 scripts/check.sh              the quality gate
 .devcontainer/                image (uv + Chromium baked in) + compose (app + Postgres)
 docs/                         extra docs (e.g. the multi-agent devcontainer workflow)
 ```
+
+## Architecture
+
+The code is split into three layers, enforced by import-linter contracts in
+`pyproject.toml`. Dependencies only ever point **downward**:
+
+```
+web (FastAPI, htmx, Jinja)  →  domain (pure Python)  →  db (Postgres, SQLAlchemy)
+```
+
+- **`app.web`** — presentation only: parse the request, call the domain, render a
+  template. **No business logic in routes or templates.** May import the domain,
+  but **never the db directly** — persistence goes through the domain.
+- **`app.domain`** — the business logic, and the layer that orchestrates
+  persistence by calling `app.db`. Pure Python: no web framework and no direct
+  SQLAlchemy (fastapi/starlette/jinja2/sqlalchemy are *forbidden* here), which
+  keeps the logic trivial to unit-test in isolation. Put the real rules here.
+- **`app.db`** — the *only* layer that touches the database (SQLAlchemy, Postgres).
+  The lowest layer: it must not import the domain or web layers, nor any web
+  framework.
+- **`app.main`** — the composition root that assembles the layers. No logic.
+
+When you add a feature: business rules go in `domain`, persistence in `db`,
+HTTP/rendering in `web`. If `lint-imports` reports a broken contract, the fix is
+almost always to move code to the right layer — not to loosen the contract.
 
 ## Common tasks
 
@@ -68,14 +102,24 @@ uv add <pkg>            # runtime dependency
 uv add --dev <pkg>      # dev/test dependency
 ```
 
+## Coverage
+
+`pytest` prints a coverage report (with the missing line numbers) on every run.
+It is **report-only** — there is deliberately no `--cov-fail-under` gate, so a low
+number never blocks you. Instead, **use the report as a checklist while coding**:
+after adding or changing behavior, read the `Missing` column and ask whether each
+uncovered line is an important path that deserves a test (an error branch, an edge
+case, a new domain rule) or genuinely trivial. Add the tests that matter; don't
+chase 100% for its own sake. New behavior still needs new tests.
+
 ## Frontend assets are vendored (offline, no CDN)
 
-htmx and the Tailwind/daisyUI CSS are committed under `app/static/` and served by
-FastAPI, so e2e tests are deterministic and need no network.
+htmx and the Tailwind/daisyUI CSS are committed under `app/web/static/` and served
+by FastAPI, so e2e tests are deterministic and need no network.
 
 ### Rebuilding the CSS
 
-`app/static/app.css` is generated from `app/static/app.tailwind.css` and only
+`app/web/static/app.css` is generated from `app/web/static/app.tailwind.css` and only
 includes classes actually used by the templates. **This build is intentionally NOT
 part of `check.sh`** (the committed CSS is what ships). Rebuild it only after adding
 or changing daisyUI/Tailwind classes in the templates:
@@ -86,10 +130,10 @@ or changing daisyUI/Tailwind classes in the templates:
 BUILD="$(mktemp -d)"
 ( cd "$BUILD" && npm init -y >/dev/null \
   && npm install tailwindcss@4 @tailwindcss/cli@4 daisyui@5 >/dev/null )
-printf '@import "tailwindcss";\n@plugin "daisyui";\n@source "%s/app/templates";\n' "$PWD" \
+printf '@import "tailwindcss";\n@plugin "daisyui";\n@source "%s/app/web/templates";\n' "$PWD" \
   > "$BUILD/input.css"
 "$BUILD/node_modules/.bin/tailwindcss" \
-  -i "$BUILD/input.css" -o app/static/app.css --minify
+  -i "$BUILD/input.css" -o app/web/static/app.css --minify
 ```
 
 ## Playwright / Chromium

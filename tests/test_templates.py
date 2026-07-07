@@ -9,7 +9,7 @@ rendering a blank.
 
 from jinja2 import StrictUndefined
 
-from app.main import templates
+from app.web.routes import templates
 
 
 def test_strict_undefined_is_configured() -> None:
@@ -19,7 +19,7 @@ def test_strict_undefined_is_configured() -> None:
 
 def test_all_templates_compile() -> None:
     names = templates.env.list_templates(extensions=["html"])
-    assert names, "no templates were discovered under app/templates"
+    assert names, "no templates were discovered under app/web/templates"
     for name in names:
         # get_template parses/compiles the source; malformed {% %} raises here.
         templates.env.get_template(name)

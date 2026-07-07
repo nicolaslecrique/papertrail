@@ -21,13 +21,19 @@ uv run ruff check .
 echo "==> pyrefly check (strict)"
 uv run pyrefly check
 
+echo "==> deptry (unused / missing / transitive dependencies)"
+uv run deptry .
+
+echo "==> lint-imports (architecture layering contracts)"
+uv run lint-imports
+
 echo "==> djlint --check (template formatting)"
-uv run djlint app/templates --check
+uv run djlint app/web/templates --check
 
 echo "==> djlint --lint (template well-formedness)"
-uv run djlint app/templates --lint
+uv run djlint app/web/templates --lint
 
-echo "==> pytest (unit + e2e)"
+echo "==> pytest (unit + e2e, with coverage report)"
 uv run pytest
 
 echo "==> all checks passed ✅"

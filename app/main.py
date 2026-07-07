@@ -1,36 +1,18 @@
-"""FastAPI Hello World service: htmx + Jinja2 + daisyUI, no database."""
+"""Composition root: build the FastAPI app and wire the web layer.
+
+This module sits at the top of the dependency stack. It assembles the pieces
+(static files, routes) but holds no business logic itself.
+"""
 
 from pathlib import Path
-from typing import Annotated
 
-from fastapi import FastAPI, Form, Request
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from jinja2 import StrictUndefined
 
-_BASE_DIR = Path(__file__).parent
+from app.web.routes import router
+
+_STATIC_DIR = Path(__file__).parent / "web" / "static"
 
 app = FastAPI(title="papertrail")
-app.mount("/static", StaticFiles(directory=_BASE_DIR / "static"), name="static")
-templates = Jinja2Templates(directory=_BASE_DIR / "templates")
-# Fail loudly on a typo'd or missing template variable instead of silently
-# rendering a blank; a missing partial still raises TemplateNotFound.
-templates.env.undefined = StrictUndefined
-
-
-@app.get("/", response_class=HTMLResponse)
-def index(request: Request) -> HTMLResponse:
-    """Render the full Hello World page."""
-    return templates.TemplateResponse(request, "index.html")
-
-
-@app.post("/greet", response_class=HTMLResponse)
-def greet(request: Request, name: Annotated[str, Form()] = "") -> HTMLResponse:
-    """Return only the greeting fragment, for htmx to swap into the page."""
-    cleaned = name.strip() or "world"
-    return templates.TemplateResponse(
-        request,
-        "partials/greeting.html",
-        {"name": cleaned},
-    )
+app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
+app.include_router(router)
