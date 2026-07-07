@@ -16,14 +16,15 @@ Before you consider **any** change complete, run:
 It must exit 0. It runs, in order:
 
 1. `uv sync` — dependencies match `pyproject.toml` / `uv.lock`
-2. `ruff format --check .` — Python formatting
-3. `ruff check .` — linting (`select = ["ALL"]`)
-4. `pyrefly check` — type checking (strict preset)
-5. `deptry .` — dependency hygiene (unused / missing / transitive / misplaced deps)
-6. `lint-imports` — architecture layering contracts (see "Architecture" below)
-7. `djlint app/web/templates --check` — template formatting
-8. `djlint app/web/templates --lint` — template well-formedness (unclosed tags, ...)
-9. `pytest` — unit + Playwright e2e tests, with a coverage report (see "Coverage")
+2. playwright version check — the Dockerfile's baked-Chromium pin must match `uv.lock`
+3. `ruff format --check .` — Python formatting
+4. `ruff check .` — linting (`select = ["ALL"]`)
+5. `pyrefly check` — type checking (strict preset)
+6. `deptry .` — dependency hygiene (unused / missing / transitive / misplaced deps)
+7. `lint-imports` — architecture layering contracts (see "Architecture" below)
+8. `djlint app/web/templates --check` — template formatting
+9. `djlint app/web/templates --lint` — template well-formedness (unclosed tags, ...)
+10. `pytest` — unit + Playwright e2e tests, with a coverage report (see "Coverage")
 
 Reformat templates with `uv run djlint app/web/templates --reformat`.
 
