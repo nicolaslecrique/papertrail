@@ -4,6 +4,22 @@ Tool to study the manipulation of science by lobbies
 
 input a paper, scientist, journal, and we will evaluate the biases surrounding it.
 
+## Technical Stack
+
+### Guardrails
+
+* dependancy management: uv
+* type checker: Pyrefly, with strict mode activated
+* tests: pytest, and pytest-playwright for e2e tests
+* linter: ruff, with "ALL" activated
+* formatter: ruff format
+
+### Service
+
+* web server: FastAPI
+* htmx with Jinja2
+* frontend components: daisyUI
+
 ## Development environment
 
 ### Why this setup
