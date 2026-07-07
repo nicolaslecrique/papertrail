@@ -11,14 +11,18 @@ input a paper, scientist, journal, and we will evaluate the biases surrounding i
 We want to run several Claude Code agents at once, each on its own task, without them ever touching
 each other's files, database, or processes. Two mechanisms combine to give that:
 
-1. **Git worktrees** give each agent its own checkout and branch, so file edits never collide.
-2. **A devcontainer per worktree** gives each agent its own sandboxed runtime — its own app container,
+1. **A fresh git clone per agent** gives each agent its own checkout, branch, and `.git`, so file edits
+   never collide. A clone is used rather than a git worktree because it is fully self-contained — its
+   `.git` is a real directory inside the folder, so the devcontainer just mounts it and in-container git
+   works with no extra plumbing. Local clones hardlink the object store, so they are fast and cheap
+   despite being independent.
+2. **A devcontainer per clone** gives each agent its own sandboxed runtime — its own app container,
    its own Postgres container, its own Docker network, and its own Postgres data volume. This is the
-   isolation git worktrees alone don't give you: two agents editing different files could otherwise
+   isolation separate checkouts alone don't give you: two agents editing different files could otherwise
    still stomp on the same database.
 
 The trick that makes this "free" (no manual bookkeeping per agent) is that the Dev Containers CLI names
-the underlying Docker Compose project after the workspace folder's name. Since every worktree lives in
+the underlying Docker Compose project after the workspace folder's name. Since every clone lives in
 its own uniquely-named directory, every agent's containers/network/DB volume land in a separate,
 uniquely-named Compose project automatically.
 
@@ -29,7 +33,7 @@ Two things were deliberately left out to keep this simple, worth knowing about:
   agent's container has full outbound internet access. The container boundary is still real isolation,
   just not hardened against a malicious dependency exfiltrating data. Revisit if that risk profile changes.
 - **Shared Claude Code login.** All agents share one `~/.claude` config volume so you sign in once
-  instead of per worktree. Session history/settings are shared as a result — a convenience trade-off,
+  instead of per clone. Session history/settings are shared as a result — a convenience trade-off,
   not a correctness one.
 
 ### How to use it
@@ -44,7 +48,7 @@ Two things were deliberately left out to keep this simple, worth knowing about:
   npm install to manage. Recommended install method:
   [nvm](https://github.com/nvm-sh/nvm) (`nvm install --lts`), since it needs no `sudo` and keeps
   Node upgrades out of the system package manager's way.
-- **git** (already present on most dev machines; needed for worktrees).
+- **git** (already present on most dev machines; needed to clone per agent).
 - Optional, only if you want the point-and-click "Reopen in Container" workflow in the editor
   instead of `scripts/agent.sh`: VS Code plus the Dev Containers extension
   (`code --install-extension ms-vscode-remote.remote-containers`).
@@ -58,9 +62,10 @@ is installed automatically per-agent; nothing else is needed on the host.
 ./scripts/agent.sh new fix-auth-bug
 ```
 
-This creates a worktree at `../papertrail-worktrees/fix-auth-bug` on branch `agent/fix-auth-bug`,
+This clones the repo into `../papertrail-clones/fix-auth-bug` on branch `agent/fix-auth-bug`,
 builds/starts its devcontainer (FastAPI app + Postgres), and drops you into a `claude` session running
-inside it. Pass extra flags to `claude` after `--`:
+inside it. The clone's `origin` is repointed at the repo's upstream (GitHub) so the agent can push its
+branch for review. Pass extra flags to `claude` after `--`:
 
 ```bash
 ./scripts/agent.sh new fix-auth-bug -- --dangerously-skip-permissions
@@ -75,13 +80,13 @@ terminal. Each gets fully separate containers, network, and database.
 ./scripts/agent.sh remove fix-auth-bug
 ```
 
-Stops and removes that agent's containers, network, and Postgres volume, then removes the git worktree
-and branch.
+Stops and removes that agent's containers, network, and Postgres volume, then deletes the clone
+directory. Any `agent/<name>` branch already pushed to GitHub is left untouched.
 
 **Poking at a running agent's database directly:**
 
 ```bash
-docker compose -f ../papertrail-worktrees/fix-auth-bug/.devcontainer/docker-compose.yml exec db \
+docker compose -f ../papertrail-clones/fix-auth-bug/.devcontainer/docker-compose.yml exec db \
   psql -U papertrail
 ```
 

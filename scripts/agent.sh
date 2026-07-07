@@ -3,12 +3,19 @@ set -euo pipefail
 
 # scripts/agent.sh - create/destroy a fully isolated Claude Code agent.
 #
-# Each agent = one git worktree (own branch, own files) + one devcontainer
-# (own app+db containers, own Docker network, own Postgres volume). Because
-# the devcontainer CLI derives its Compose "project name" from the worktree
-# directory's basename when the compose file lives under <dir>/.devcontainer/,
-# giving each agent a unique directory name is *all* it takes to keep every
-# agent's containers/network/DB completely separate - no manual -p flags.
+# Each agent = one fresh git clone (own checkout, branch, and .git) + one
+# devcontainer (own app+db containers, own Docker network, own Postgres
+# volume). Because the devcontainer CLI derives its Compose "project name" from
+# the clone directory's basename when the compose file lives under
+# <dir>/.devcontainer/, giving each agent a unique directory name is *all* it
+# takes to keep every agent's containers/network/DB completely separate - no
+# manual -p flags.
+#
+# We use a clone rather than a git worktree because a clone is self-contained:
+# its .git is a real directory inside the folder, so the devcontainer's
+# `..:/workspace` mount already contains everything git needs - no bind-mounting
+# the main repo's git dir, no host-path juggling. A local clone hardlinks the
+# object store, so it is fast and space-cheap despite being independent.
 #
 # Usage:
 #   scripts/agent.sh new <task-name> [-- <extra claude args>]
@@ -36,9 +43,9 @@ sanitize() {
 COMMAND="$1"; shift
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# Worktrees live next to the repo, not inside it, so they never show up as
-# untracked files in `git status` - no .gitignore entries needed for them.
-WORKTREES_ROOT="$(dirname "$REPO_ROOT")/papertrail-worktrees"
+# Clones live next to the repo, not inside it, so they never show up as
+# untracked files in the main checkout's `git status`.
+CLONES_ROOT="$(dirname "$REPO_ROOT")/papertrail-clones"
 
 case "$COMMAND" in
   new)
@@ -48,53 +55,55 @@ case "$COMMAND" in
     CLAUDE_ARGS=("$@")                  # anything left is passed to `claude` as-is
 
     [ -n "$SAFE_NAME" ] || { echo "error: task name has no valid characters after sanitizing" >&2; exit 1; }
-    WORKTREE_DIR="$WORKTREES_ROOT/$SAFE_NAME"
+    CLONE_DIR="$CLONES_ROOT/$SAFE_NAME"
     BRANCH="agent/$SAFE_NAME"
 
-    # The isolation guarantee below depends on this directory name being
+    # The isolation guarantee above depends on this directory name being
     # unique, so refuse to silently reuse/overwrite one.
-    if [ -e "$WORKTREE_DIR" ]; then
-      echo "error: $WORKTREE_DIR already exists - pick another name, or run '$0 remove $SAFE_NAME' first" >&2
+    if [ -e "$CLONE_DIR" ]; then
+      echo "error: $CLONE_DIR already exists - pick another name, or run '$0 remove $SAFE_NAME' first" >&2
       exit 1
     fi
 
-    mkdir -p "$WORKTREES_ROOT"
-    echo "==> Creating worktree at $WORKTREE_DIR on branch $BRANCH"
-    # No base ref given: branches from whatever commit is currently checked
-    # out in the main repo (usually main) - the normal git worktree default.
-    git -C "$REPO_ROOT" worktree add -b "$BRANCH" "$WORKTREE_DIR"
+    mkdir -p "$CLONES_ROOT"
+    echo "==> Cloning into $CLONE_DIR on branch $BRANCH"
+    # Local clone: hardlinks objects (fast, cheap) and copies main's current
+    # HEAD as the starting point, but is fully independent afterwards.
+    git clone --quiet "$REPO_ROOT" "$CLONE_DIR"
+    # Point the clone at the real upstream (if any) so `git push`/`pull` from
+    # inside the agent go to GitHub, not back to the local main checkout.
+    UPSTREAM_URL="$(git -C "$REPO_ROOT" remote get-url origin 2>/dev/null || true)"
+    [ -n "$UPSTREAM_URL" ] && git -C "$CLONE_DIR" remote set-url origin "$UPSTREAM_URL"
+    git -C "$CLONE_DIR" checkout --quiet -b "$BRANCH"
 
-    # In-container git access from a worktree needs the main repo's git dir
-    # bind-mounted (see .devcontainer/gen-git-mount.sh). That's wired via the
-    # devcontainer `initializeCommand`, so it applies to both this CLI path and
-    # VS Code's "Reopen in Container" - nothing git-specific is needed here.
     echo "==> Building/starting isolated devcontainer for '$SAFE_NAME'"
-    npx --yes @devcontainers/cli up --workspace-folder "$WORKTREE_DIR"
+    npx --yes @devcontainers/cli up --workspace-folder "$CLONE_DIR"
 
     echo "==> Launching Claude Code (Compose project: ${SAFE_NAME}_devcontainer, branch: $BRANCH)"
-    exec npx --yes @devcontainers/cli exec --workspace-folder "$WORKTREE_DIR" claude "${CLAUDE_ARGS[@]}"
+    exec npx --yes @devcontainers/cli exec --workspace-folder "$CLONE_DIR" claude "${CLAUDE_ARGS[@]}"
     ;;
 
   remove)
     [ $# -ge 1 ] || usage
     SAFE_NAME="$(sanitize "$1")"
-    WORKTREE_DIR="$WORKTREES_ROOT/$SAFE_NAME"
+    CLONE_DIR="$CLONES_ROOT/$SAFE_NAME"
 
-    if [ -d "$WORKTREE_DIR" ]; then
+    if [ -d "$CLONE_DIR" ]; then
       # The `devcontainer` CLI has no down/stop command (yet), so tear the
       # containers/network/volume down directly via docker compose. This
       # project name must match the one `up` derived automatically above -
-      # both are `<worktree-basename>_devcontainer`.
+      # both are `<clone-basename>_devcontainer`.
       echo "==> Stopping containers and deleting the Postgres volume for '${SAFE_NAME}_devcontainer'"
-      docker compose -p "${SAFE_NAME}_devcontainer" -f "$WORKTREE_DIR/.devcontainer/docker-compose.yml" down -v || true
+      docker compose -p "${SAFE_NAME}_devcontainer" -f "$CLONE_DIR/.devcontainer/docker-compose.yml" down -v || true
 
-      echo "==> Removing worktree $WORKTREE_DIR"
-      git -C "$REPO_ROOT" worktree remove "$WORKTREE_DIR" --force
+      # The clone is self-contained, so removing the agent is just deleting its
+      # directory. Any `agent/<name>` branch it pushed to GitHub is untouched.
+      echo "==> Removing clone $CLONE_DIR"
+      rm -rf "$CLONE_DIR"
     else
-      echo "warning: $WORKTREE_DIR not found - skipping container/worktree removal" >&2
+      echo "warning: $CLONE_DIR not found - skipping container/clone removal" >&2
     fi
 
-    git -C "$REPO_ROOT" branch -D "agent/$SAFE_NAME" 2>/dev/null || true
     echo "==> Done."
     ;;
 

@@ -1,17 +1,9 @@
 {
   "name": "papertrail",
-  // docker-compose.git.yml is generated on the host by initializeCommand
-  // (below) and bind-mounts the git common dir so in-container git works from a
-  // worktree checkout. It's git-ignored and per-machine, hence generated rather
-  // than committed. Listing it here (not just via scripts/agent.sh) means the
-  // mount is also applied when the container is brought up from VS Code's
-  // "Reopen in Container", which only ever reads this committed config.
-  "dockerComposeFile": ["docker-compose.yml", "docker-compose.git.yml"],
+  "dockerComposeFile": "docker-compose.yml",
   "service": "app",
   "workspaceFolder": "/workspace",
   "remoteUser": "vscode",
-
-  "initializeCommand": "bash .devcontainer/gen-git-mount.sh",
 
   "features": {
     "ghcr.io/devcontainers/features/node:1": {},
@@ -19,7 +11,7 @@
   },
 
   // Bind-mount the host's real Claude Code config/credentials so every
-  // container (and every worktree opened via scripts/agent.sh) is already
+  // container (and every clone opened via scripts/agent.sh) is already
   // logged in on open - no separate in-container login step.
   // Trade-off: the host and every container share the exact same live
   // session/credentials/history files - fine for one person's own machine,
@@ -32,7 +24,7 @@
     "source=${localEnv:HOME}/.claude.json,target=/home/vscode/.claude.json,type=bind"
   ],
 
-  // A brand-new worktree/scaffold has no pyproject.toml yet on first boot -
+  // A brand-new clone/scaffold has no pyproject.toml yet on first boot -
   // don't fail on that, and don't mask a genuine `uv sync` failure either.
   "postCreateCommand": "bash -c 'if [ -f pyproject.toml ]; then uv sync; else echo \"No pyproject.toml yet - skipping uv sync\"; fi'",
 
