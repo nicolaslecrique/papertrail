@@ -64,8 +64,22 @@ case "$COMMAND" in
     # out in the main repo (usually main) - the normal git worktree default.
     git -C "$REPO_ROOT" worktree add -b "$BRANCH" "$WORKTREE_DIR"
 
+    # A worktree's `.git` is a *file* pointing at the main repo's git dir
+    # (its objects/refs/index all live there, under .git/worktrees/<name>).
+    # The compose file only mounts the worktree itself at /workspace, so
+    # without also mounting that git dir every in-container git command fails
+    # with "not a git repository". Bind-mount it at the SAME absolute path it
+    # already points to (identity mount) so the existing pointer just resolves.
+    # It's derived at runtime, so this works wherever the repo is cloned - no
+    # hardcoded path. It can't live in the committed compose/devcontainer files
+    # (the path is per-machine), and the devcontainer CLI's own
+    # --mount-git-worktree-common-dir flag is silently ignored for the
+    # Compose-based flow this project uses, so we pass a plain --mount instead.
+    GIT_COMMON_DIR="$(cd "$(git -C "$WORKTREE_DIR" rev-parse --git-common-dir)" && pwd)"
+
     echo "==> Building/starting isolated devcontainer for '$SAFE_NAME'"
-    npx --yes @devcontainers/cli up --workspace-folder "$WORKTREE_DIR"
+    npx --yes @devcontainers/cli up --workspace-folder "$WORKTREE_DIR" \
+      --mount "type=bind,source=$GIT_COMMON_DIR,target=$GIT_COMMON_DIR"
 
     echo "==> Launching Claude Code (Compose project: ${SAFE_NAME}_devcontainer, branch: $BRANCH)"
     exec npx --yes @devcontainers/cli exec --workspace-folder "$WORKTREE_DIR" claude "${CLAUDE_ARGS[@]}"
