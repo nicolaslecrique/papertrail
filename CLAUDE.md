@@ -4,5 +4,4 @@ Claude Code auto-loads this file. The project guidance lives in AGENTS.md — re
 
 @AGENTS.md
 
-**Reminder:** after any change, run `./scripts/check.sh` and make it pass (ruff format,
-ruff lint = ALL, pyrefly strict, pytest unit + e2e) before finishing.
+**Reminder:** after any change, run `./scripts/check.sh` and make it pass before finishing.

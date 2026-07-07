@@ -50,6 +50,7 @@ app/
 tests/                        unit tests + conftest live-server fixture + e2e
 scripts/check.sh              the quality gate
 .devcontainer/                image (uv + Chromium baked in) + compose (app + Postgres)
+docs/                         extra docs (e.g. the multi-agent devcontainer workflow)
 ```
 
 ## Common tasks
