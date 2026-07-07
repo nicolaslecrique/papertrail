@@ -219,3 +219,9 @@ __marimo__/
 
 # Claude Code worktrees created ad hoc via `claude --worktree`
 .claude/worktrees/
+
+# Node/pnpm: frontend build tooling (Tailwind/daisyUI CSS build, vendored JS
+# deps). package.json + pnpm-lock.yaml are committed; node_modules and pnpm's
+# local content-addressable store are not.
+node_modules/
+.pnpm-store/

@@ -20,4 +20,15 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 RUN uvx --from playwright==1.61.0 playwright install --with-deps chromium \
     && chmod -R a+rX /ms-playwright
 
+# Node + pnpm (frontend build tooling: rebuilding app/web/static/app.css from
+# Tailwind/daisyUI, and vendoring JS deps like htmx - see the "Rebuilding the
+# CSS" section of AGENTS.md). Node isn't a single static binary like uv/gitleaks
+# above, so copy its install tree from the official image instead; corepack
+# (bundled with Node) then pins the exact pnpm version from `packageManager` in
+# package.json, reproducibly, with no separate npm-install-pnpm step.
+COPY --from=node:24.18.0-slim /usr/local/bin/node /usr/local/bin/node
+COPY --from=node:24.18.0-slim /usr/local/bin/corepack /usr/local/bin/corepack
+COPY --from=node:24.18.0-slim /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN corepack enable && corepack prepare pnpm@11.10.0 --activate
+
 WORKDIR /workspace

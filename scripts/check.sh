@@ -26,6 +26,24 @@ if [ "$DOCKERFILE_PLAYWRIGHT" != "$LOCKFILE_PLAYWRIGHT" ]; then
   exit 1
 fi
 
+echo "==> frontend assets up to date (committed CSS/JS match their sources)"
+# The built assets under app/web/static/ (app.css, htmx.min.js) are committed and
+# are what ships - `pnpm run build` is a manual step, deliberately not run here.
+# But we DO cheaply guard against forgetting it: `pnpm run build` also writes
+# app/web/static/assets.sha256, a fingerprint of the build INPUTS (app.tailwind.css,
+# templates/, pnpm-lock.yaml - see scripts/assets-fingerprint.sh). Recompute that
+# fingerprint and compare. If it drifts, a source changed (a template class, the
+# Tailwind config, a frontend dep) without the assets being rebuilt, so the
+# committed CSS/JS is stale. Pure hash compare: no Node/pnpm, milliseconds.
+EXPECTED_ASSETS_FP="$(scripts/assets-fingerprint.sh)"
+COMMITTED_ASSETS_FP="$(cat app/web/static/assets.sha256 2>/dev/null || true)"
+if [ "$EXPECTED_ASSETS_FP" != "$COMMITTED_ASSETS_FP" ]; then
+  echo "error: frontend assets are stale - a build input changed but the committed" >&2
+  echo "       app/web/static/{app.css,htmx.min.js} were not rebuilt." >&2
+  echo "       Run 'pnpm install && pnpm run build', then commit the regenerated files." >&2
+  exit 1
+fi
+
 echo "==> gitleaks (secret scanning, full git history)"
 if ! command -v gitleaks >/dev/null 2>&1; then
   echo "error: gitleaks not found on PATH. It's baked into the devcontainer image" >&2

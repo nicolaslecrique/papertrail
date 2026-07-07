@@ -1,9 +1,16 @@
 /*
- * Source for the committed, served stylesheet app/static/app.css.
- * Rebuild after changing daisyUI/Tailwind classes in the templates:
- *   see the "Rebuilding the CSS" section of AGENTS.md.
- * The build is a one-off; it is intentionally NOT part of scripts/check.sh.
+ * Source for the committed, served stylesheet app/web/static/app.css.
+ * Rebuild (`pnpm run build`) after changing daisyUI/Tailwind classes in the
+ * templates or bumping a frontend dep; see the "When (and how) to rebuild the
+ * frontend assets" section of AGENTS.md. The build itself isn't run by
+ * scripts/check.sh, but the gate fails if the committed assets are stale.
+ *
+ * source(none) disables Tailwind v4's automatic whole-repo content detection, so
+ * the ONLY classes considered are those found via the explicit @source below.
+ * Without it the build also scans prose (AGENTS.md, docs, ...) and any word that
+ * matches a daisyUI/Tailwind class name (e.g. "diff") leaks into the shipped CSS,
+ * making the output bloated and non-deterministic w.r.t. unrelated text. Keep it.
  */
-@import "tailwindcss";
+@import "tailwindcss" source(none);
 @plugin "daisyui";
 @source "../templates";
