@@ -12,5 +12,7 @@
  * making the output bloated and non-deterministic w.r.t. unrelated text. Keep it.
  */
 @import "tailwindcss" source(none);
-@plugin "daisyui";
+@plugin "daisyui" {
+  themes: dark --default;
+}
 @source "../templates";
