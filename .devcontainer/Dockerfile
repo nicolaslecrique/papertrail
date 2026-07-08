@@ -27,8 +27,12 @@ RUN uvx --from playwright==1.61.0 playwright install --with-deps chromium \
 # (bundled with Node) then pins the exact pnpm version from `packageManager` in
 # package.json, reproducibly, with no separate npm-install-pnpm step.
 COPY --from=node:24.18.0-slim /usr/local/bin/node /usr/local/bin/node
-COPY --from=node:24.18.0-slim /usr/local/bin/corepack /usr/local/bin/corepack
 COPY --from=node:24.18.0-slim /usr/local/lib/node_modules /usr/local/lib/node_modules
+# /usr/local/bin/corepack in the node image is a symlink into the node_modules
+# tree above; COPYing that symlink directly dereferences it into a standalone
+# file, which breaks corepack's own relative `require('./lib/corepack.cjs')`.
+# Recreate the symlink ourselves instead of copying it.
+RUN ln -s ../lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack
 RUN corepack enable && corepack prepare pnpm@11.10.0 --activate
 
 WORKDIR /workspace
