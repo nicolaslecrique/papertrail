@@ -1,4 +1,2 @@
-* Understand dev setup
-* test dev setup
-* Add GG to checks
-
+* Review whole code
+* Make sure pg extention work

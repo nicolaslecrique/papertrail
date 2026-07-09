@@ -22,8 +22,6 @@ dependencies = [
 [dependency-groups]
 dev = [
     "pytest",
-    "pytest-playwright",
-    "playwright",
     "httpx",
     "pyrefly",
     "ruff",
@@ -105,6 +103,9 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+"scripts/**" = [
+    "INP001", # standalone operational scripts, not an importable package
+]
 "tests/**" = [
     "S101",    # asserts are the point of a test
     "S105",    # test fixtures use literal passwords/tokens as data
@@ -122,8 +123,9 @@ ignore = [
 # ---------------------------------------------------------------------------
 [tool.deptry]
 # deptry reads the PEP 735 `[dependency-groups]` table natively, so the `dev`
-# group is already treated as development-only (test tools like pytest and
-# playwright are not reported as unused production dependencies).
+# group is already treated as development-only (test tools like pytest are not
+# reported as unused production dependencies). The e2e browser tests are a
+# separate TypeScript project (see e2e/), so no Python Playwright dep remains.
 
 [tool.deptry.per_rule_ignores]
 # DEP002 = declared but never imported. These are legitimately not imported:

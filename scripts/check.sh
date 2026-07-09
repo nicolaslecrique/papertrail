@@ -3,26 +3,28 @@ set -euo pipefail
 
 # scripts/check.sh - the single quality gate for this repo.
 #
-# Runs formatting, linting, strict type checking, and the full test suite
-# (unit + Playwright e2e). Any agent or human MUST run this and make it pass
-# before considering a change complete. See AGENTS.md.
+# Runs formatting, linting, strict type checking, the Python test suite (unit +
+# integration), and the TypeScript Playwright e2e suite. Any agent or human MUST
+# run this and make it pass before considering a change complete. See AGENTS.md.
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 echo "==> uv sync (ensure deps match pyproject/uv.lock)"
 uv sync
 
-echo "==> playwright version pin matches between Dockerfile and uv.lock"
+echo "==> playwright version pin matches between Dockerfile and e2e/package.json"
 # The Dockerfile bakes Chromium at image-build time via a pinned `uvx --from
-# playwright==X`, decoupled from the `playwright` package uv actually resolves
-# into uv.lock. If they drift, the baked browser can mismatch the runtime
-# driver in a way that's confusing to debug - fail loudly here instead.
+# playwright==X`. The e2e suite drives that baked browser through the TypeScript
+# `@playwright/test` package (e2e/package.json). If the two versions drift, the
+# baked browser can mismatch the JS runner in a way that's confusing to debug -
+# fail loudly here instead.
 DOCKERFILE_PLAYWRIGHT="$(grep -oE 'playwright==[0-9.]+' .devcontainer/Dockerfile | head -1 | cut -d= -f3)"
-LOCKFILE_PLAYWRIGHT="$(grep -A1 '^name = "playwright"$' uv.lock | grep '^version' | cut -d'"' -f2)"
-if [ "$DOCKERFILE_PLAYWRIGHT" != "$LOCKFILE_PLAYWRIGHT" ]; then
+E2E_PLAYWRIGHT="$(grep -oE '"@playwright/test": "[0-9.]+"' e2e/package.json | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')"
+if [ "$DOCKERFILE_PLAYWRIGHT" != "$E2E_PLAYWRIGHT" ]; then
   echo "error: .devcontainer/Dockerfile pins playwright==$DOCKERFILE_PLAYWRIGHT" \
-       "but uv.lock resolved playwright==$LOCKFILE_PLAYWRIGHT" >&2
-  echo "       bump the Dockerfile's uvx pin (and rebuild the devcontainer image) to match." >&2
+       "but e2e/package.json pins @playwright/test==$E2E_PLAYWRIGHT" >&2
+  echo "       align the two pins (and rebuild the devcontainer image if you bumped" \
+       "the Dockerfile) so the baked Chromium matches the @playwright/test runner." >&2
   exit 1
 fi
 
@@ -77,7 +79,19 @@ uv run djlint app/web/templates --check
 echo "==> djlint --lint (template well-formedness)"
 uv run djlint app/web/templates --lint
 
-echo "==> pytest (unit + e2e, with coverage report)"
+echo "==> pytest (unit + integration, with coverage report)"
 uv run pytest
+
+echo "==> playwright e2e (TypeScript)"
+# The browser tests are a standalone TypeScript Playwright project under e2e/
+# (see docs/e2e-tests.md). Install its JS deps - the pnpm store caches them, and
+# PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD reuses the Chromium baked at /ms-playwright, so
+# no browser is downloaded - then run the suite, which boots the app via uvicorn
+# against the test database and seeds a verified user in its global setup.
+(
+  cd e2e
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 pnpm install --frozen-lockfile
+  pnpm exec playwright test
+)
 
 echo "==> all checks passed ✅"

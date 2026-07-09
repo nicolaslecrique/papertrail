@@ -1,0 +1,6 @@
+# Makes e2e/ its own pnpm workspace root so `pnpm install` here resolves this
+# package.json instead of being captured by the repo-root pnpm-workspace.yaml
+# (which governs the frontend build). This keeps a separate e2e/pnpm-lock.yaml,
+# so adding Playwright never touches the frontend CSS assets fingerprint.
+packages:
+  - "."

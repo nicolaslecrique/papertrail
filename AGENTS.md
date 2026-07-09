@@ -16,7 +16,8 @@ Before you consider **any** change complete, run:
 It must exit 0. It runs, in order:
 
 1. `uv sync` — dependencies match `pyproject.toml` / `uv.lock`
-2. playwright version check — the Dockerfile's baked-Chromium pin must match `uv.lock`
+2. playwright version check — the Dockerfile's baked-Chromium pin must match the
+   `@playwright/test` pin in `e2e/package.json`
 3. frontend assets fresh — committed `app/web/static/{app.css,htmx.min.js}` are not
    stale vs their sources (see "Frontend assets are vendored")
 4. `gitleaks git` — secret scanning over the full git history
@@ -29,7 +30,8 @@ It must exit 0. It runs, in order:
 11. `djlint app/web/templates --check` — template formatting (reformat with
     `uv run djlint app/web/templates --reformat`)
 12. `djlint app/web/templates --lint` — template well-formedness (unclosed tags, ...)
-13. `pytest` — unit + Playwright e2e tests, with a coverage report (see "Coverage")
+13. `pytest` — Python unit + integration tests, with a coverage report (see "Coverage")
+14. `playwright test` — TypeScript browser e2e in `e2e/` (see "End-to-end tests")
 
 If it fails, fix the code (or the test) until it passes. Do not weaken the linter,
 the type checker, or delete tests to make it pass. New behavior needs new tests.
@@ -44,7 +46,8 @@ the type checker, or delete tests to make it pass. New behavior needs new tests.
 - **Dependency vulnerabilities:** `uv audit` (see docs/security-checks.md)
 - **Secret scanning:** gitleaks (see docs/security-checks.md)
 - **Architecture enforcement:** import-linter (layering contracts in `pyproject.toml`)
-- **Tests:** pytest + pytest-playwright (e2e), coverage via pytest-cov
+- **Tests:** pytest (unit + integration, coverage via pytest-cov); Playwright in
+  TypeScript for browser e2e (in `e2e/`) — see [docs/e2e-tests.md](docs/e2e-tests.md)
 - **Web:** FastAPI, htmx + Jinja2 templates, daisyUI components
 - **Frontend build tooling:** pnpm (`package.json` + `pnpm-lock.yaml`), Node baked
   into the devcontainer — see [docs/frontend-assets.md](docs/frontend-assets.md)
@@ -65,12 +68,17 @@ app/
     static/app.css            vendored, prebuilt Tailwind+daisyUI CSS (committed)
     static/app.tailwind.css   source for app.css (see docs/frontend-assets.md)
     static/assets.sha256      fingerprint of the build inputs (staleness gate)
-tests/                        unit tests + conftest live-server fixture + e2e
+tests/                        Python unit + integration tests (+ conftest DB/client fixtures)
+e2e/                          self-contained TypeScript Playwright project (browser e2e)
+  playwright.config.ts        boots the app via uvicorn + seeds a verified user
+  tests/*.spec.ts             the browser specs
+  support/                    shared config, seeded credentials, global setup
 scripts/check.sh              the quality gate
+scripts/e2e_seed.py           seeds the verified e2e user (reuses the app's UserManager)
 scripts/assets-fingerprint.sh hash of frontend build inputs (build + gate share it)
 package.json, pnpm-lock.yaml  frontend build deps (Tailwind/daisyUI, htmx) - pinned, committed
 .devcontainer/                image (uv + Node/pnpm + Chromium baked in) + compose (app + Postgres)
-docs/                         extra docs (e.g. frontend assets, security checks, multi-agent devcontainer workflow)
+docs/                         extra docs (e.g. frontend assets, e2e tests, security checks, multi-agent devcontainer workflow)
 ```
 
 ## Architecture
@@ -106,6 +114,12 @@ Run the app locally (VS Code forwards the port):
 uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
+Run the browser e2e tests (see [docs/e2e-tests.md](docs/e2e-tests.md)):
+
+```bash
+cd e2e && pnpm install && pnpm exec playwright test
+```
+
 Add dependencies:
 
 ```bash
@@ -136,10 +150,19 @@ vulnerability scanning (`uv audit`). See
 [docs/security-checks.md](docs/security-checks.md) for how each works and
 what to do when one flags something.
 
+## End-to-end tests
+
+The browser e2e tests are a self-contained **TypeScript Playwright** project in
+`e2e/` (TypeScript is Playwright's primary language, so the VS Code Playwright
+Test extension works). It boots the app via uvicorn against a test database and
+seeds a verified user in its global setup. See
+[docs/e2e-tests.md](docs/e2e-tests.md) for how to run and write them.
+
 ## Playwright / Chromium
 
 Chromium and its OS libraries are baked into the devcontainer image
 (`.devcontainer/Dockerfile`, `PLAYWRIGHT_BROWSERS_PATH=/ms-playwright`) so
-container startup stays fast and e2e tests run offline. Bump the `playwright`
-version in the Dockerfile and `uv.lock` together — check.sh step 2 fails if
-they drift.
+container startup stays fast and e2e tests run offline. The e2e suite drives that
+baked browser through the `@playwright/test` package in `e2e/package.json`. Keep
+its version in lockstep with the Dockerfile's `uvx --from playwright==X` pin
+(bump both, then rebuild the image) — check.sh step 2 fails if they drift.
