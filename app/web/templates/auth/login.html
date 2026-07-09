@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Sign in — papertrail{% endblock title %}
+{% block content %}
+    <div class="card w-full max-w-md bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h1 class="card-title text-2xl">Sign in</h1>
+            <form hx-post="/login"
+                  hx-target="#form-msg"
+                  hx-swap="innerHTML"
+                  class="mt-2 flex flex-col gap-3">
+                <input type="email"
+                       name="email"
+                       required
+                       placeholder="Email"
+                       autocomplete="email"
+                       class="input input-bordered w-full"
+                       aria-label="Email" />
+                <input type="password"
+                       name="password"
+                       required
+                       placeholder="Password"
+                       autocomplete="current-password"
+                       class="input input-bordered w-full"
+                       aria-label="Password" />
+                <button type="submit" class="btn btn-primary">Sign in</button>
+            </form>
+            <div id="form-msg" class="mt-2"></div>
+            <div class="mt-4 flex justify-between text-sm">
+                <a href="/register" class="link">Create account</a>
+                <a href="/forgot-password" class="link">Forgot password?</a>
+            </div>
+        </div>
+    </div>
+{% endblock content %}

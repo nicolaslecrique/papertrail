@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — papertrail{% endblock title %}
+{% block content %}
+    <div class="card w-full max-w-md bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h1 class="card-title text-2xl">Dashboard</h1>
+            <p class="text-base-content/70">
+                Signed in as <span class="font-semibold">{{ email }}</span>.
+            </p>
+            <button type="button"
+                    class="btn btn-primary mt-2"
+                    hx-post="/logout"
+                    aria-label="Log out">Log out</button>
+        </div>
+    </div>
+{% endblock content %}

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Create account — papertrail{% endblock title %}
+{% block content %}
+    <div class="card w-full max-w-md bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h1 class="card-title text-2xl">Create account</h1>
+            <form hx-post="/register"
+                  hx-target="#form-msg"
+                  hx-swap="innerHTML"
+                  class="mt-2 flex flex-col gap-3">
+                <input type="email"
+                       name="email"
+                       required
+                       placeholder="Email"
+                       autocomplete="email"
+                       class="input input-bordered w-full"
+                       aria-label="Email" />
+                <input type="password"
+                       name="password"
+                       required
+                       placeholder="Password"
+                       autocomplete="new-password"
+                       class="input input-bordered w-full"
+                       aria-label="Password" />
+                <input type="password"
+                       name="confirm_password"
+                       required
+                       placeholder="Confirm password"
+                       autocomplete="new-password"
+                       class="input input-bordered w-full"
+                       aria-label="Confirm password" />
+                <button type="submit" class="btn btn-primary">Create account</button>
+            </form>
+            <div id="form-msg" class="mt-2"></div>
+            <div class="mt-4 text-sm">
+                <a href="/login" class="link">Already have an account? Sign in</a>
+            </div>
+        </div>
+    </div>
+{% endblock content %}

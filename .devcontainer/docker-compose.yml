@@ -8,6 +8,9 @@ services:
     command: sleep infinity
     environment:
       DATABASE_URL: postgresql://papertrail:papertrail@db:5432/papertrail
+      # Dev-only placeholder for the JWT signing secret. Override with a strong,
+      # random value in any real deployment (it must never be this string).
+      AUTH_SECRET: dev-only-not-a-real-secret-change-me
     depends_on:
       db:
         condition: service_healthy
