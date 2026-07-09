@@ -47,7 +47,64 @@
           "editor.defaultFormatter": "charliermarsh.ruff",
           "editor.formatOnSave": true,
           "editor.codeActionsOnSave": { "source.fixAll.ruff": "explicit" }
-        }
+        },
+
+        // Connection profiles for the PostgreSQL extension, pointing at the `db`
+        // service in docker-compose.yml (reachable by service name from inside
+        // this container; there is no host port mapping on purpose).
+        //
+        // `papertrail` is the role created by POSTGRES_USER, which Postgres makes
+        // a superuser - so these are admin connections. The password is the
+        // dev-only credential already committed in docker-compose.yml.
+        //
+        // These settings are materialized into the container's Machine settings
+        // (~/.vscode-server/data/Machine/settings.json) on container create. The
+        // extension reads `password` from there once, moves it into its credential
+        // store, and blanks it in that file - which is why the password must live
+        // here and not in a committed .vscode/settings.json: that file would be
+        // rewritten on every load and show up as a dirty working tree. Machine
+        // settings are disposable and re-seeded from this file on every rebuild.
+        // `savePassword` is what makes the extension keep it instead of prompting.
+        "pgsql.serverGroups": [
+          {
+            "id": "papertrail-devcontainer",
+            "name": "papertrail (devcontainer)",
+            "description": "Postgres running in the devcontainer's `db` service"
+          }
+        ],
+        "pgsql.connections": [
+          {
+            "id": "papertrail-dev",
+            "groupId": "papertrail-devcontainer",
+            "profileName": "papertrail (admin)",
+            "server": "db",
+            "port": "5432",
+            "database": "papertrail",
+            "user": "papertrail",
+            "password": "papertrail",
+            "savePassword": true,
+            "authenticationType": "SqlLogin",
+            "sslmode": "disable",
+            "applicationName": "vscode-pgsql",
+            "connectTimeout": 15
+          },
+          {
+            // Created on demand by tests/conftest.py - absent until pytest has run.
+            "id": "papertrail-test",
+            "groupId": "papertrail-devcontainer",
+            "profileName": "papertrail_test (admin)",
+            "server": "db",
+            "port": "5432",
+            "database": "papertrail_test",
+            "user": "papertrail",
+            "password": "papertrail",
+            "savePassword": true,
+            "authenticationType": "SqlLogin",
+            "sslmode": "disable",
+            "applicationName": "vscode-pgsql",
+            "connectTimeout": 15
+          }
+        ]
       }
     }
   }
