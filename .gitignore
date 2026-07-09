@@ -206,6 +206,9 @@ tempCodeRunnerFile.py
 # Ruff stuff:
 .ruff_cache/
 
+# Playwright e2e recordings (video/trace/screenshots from `pytest --video/--tracing`)
+test-results/
+
 # PyPI configuration file
 .pypirc
 

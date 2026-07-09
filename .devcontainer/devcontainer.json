@@ -35,7 +35,8 @@
         "charliermarsh.ruff",
         "meta.pyrefly",
         "ms-playwright.playwright",
-        "samuelcolvin.jinjahtml"
+        "samuelcolvin.jinjahtml",
+        "ms-ossdata.vscode-pgsql"
       ],
       "settings": {
         "python.defaultInterpreterPath": "/workspace/.venv/bin/python",
