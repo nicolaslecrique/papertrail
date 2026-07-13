@@ -5,6 +5,12 @@ Guidance for AI agents (and humans) working in this repo.
 `papertrail` is a tool to study the manipulation of science by lobbies. This is
 currently a **Hello World** slice that stands up the full production stack end to end.
 
+## Git workflow: no pull requests
+
+This is a solo project — the author works alone, so pull requests add no value.
+Do **not** open a PR. Once the check is green (see below), merge the work branch
+straight into `main` and push. Keep commits focused and descriptive.
+
 ## The one rule: keep the check green
 
 Before you consider **any** change complete, run:
