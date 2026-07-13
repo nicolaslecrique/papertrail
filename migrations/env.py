@@ -19,7 +19,12 @@ config = context.config
 # hard-coding credentials in alembic.ini.
 config.set_main_option("sqlalchemy.url", settings.async_database_url)
 
-if config.config_file_name is not None:
+# The `configure_logger` attribute lets a programmatic caller (see
+# app/db/migrate.py) skip this so it doesn't disable the app's own loggers; the
+# CLI leaves it unset, so `alembic ...` on the command line still configures logging.
+if config.config_file_name is not None and config.attributes.get(
+    "configure_logger", True
+):
     fileConfig(config.config_file_name)
 
 # Metadata Alembic autogenerates against.

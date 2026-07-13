@@ -26,7 +26,10 @@
 
   // A brand-new clone/scaffold has no pyproject.toml yet on first boot -
   // don't fail on that, and don't mask a genuine `uv sync` failure either.
-  "postCreateCommand": "bash -c 'if [ -f pyproject.toml ]; then uv sync; else echo \"No pyproject.toml yet - skipping uv sync\"; fi'",
+  // After syncing deps, bring the app database (the `papertrail` database used
+  // by `uv run uvicorn`) up to the latest schema so it's ready to use on open -
+  // `alembic upgrade head` is idempotent (a no-op once already at head).
+  "postCreateCommand": "bash -c 'if [ -f pyproject.toml ]; then uv sync && uv run alembic upgrade head; else echo \"No pyproject.toml yet - skipping uv sync\"; fi'",
 
   "customizations": {
     "vscode": {

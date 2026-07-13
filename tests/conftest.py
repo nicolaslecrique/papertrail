@@ -26,7 +26,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool
 
 from app.config import settings
-from app.db.engine import Base, get_async_session
+from app.db.engine import get_async_session
+from app.db.migrate import upgrade_to_head
 from app.domain.email import get_email_sender
 from app.main import app
 
@@ -93,7 +94,8 @@ class CapturingEmailSender:
 # --------------------------------------------------------------------------- #
 # Database lifecycle.
 # --------------------------------------------------------------------------- #
-async def _setup_database() -> None:
+async def _ensure_test_database() -> None:
+    """Create the ``papertrail_test`` database if it does not exist yet."""
     admin_url = settings.async_database_url.rsplit("/", 1)[0] + "/papertrail"
     admin_engine = create_async_engine(
         admin_url,
@@ -108,14 +110,18 @@ async def _setup_database() -> None:
         if not exists:
             await conn.execute(text(f'CREATE DATABASE "{_TEST_DB_NAME}"'))
     await admin_engine.dispose()
-    async with _test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
 
 
 @pytest.fixture(scope="session", autouse=True)
 def _prepare_database() -> None:
-    """Create the test database and schema once per test session."""
-    _run(_setup_database())
+    """Create the test database and bring its schema up to head once per session.
+
+    The schema is built by running the real Alembic migrations (not
+    ``metadata.create_all``), so every test run exercises them. ``upgrade_to_head``
+    is synchronous, so it runs outside the ``_run`` helper's event loop.
+    """
+    _run(_ensure_test_database())
+    upgrade_to_head()
 
 
 async def _truncate_users() -> None:

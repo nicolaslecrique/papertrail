@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.config import settings
-from app.db.engine import Base
+from app.db.migrate import upgrade_to_head
 from app.domain.email import ConsoleEmailSender
 from app.domain.schemas import UserCreate
 from app.domain.users import UserManager, build_user_db
@@ -51,10 +51,9 @@ async def _ensure_database() -> None:
 
 
 async def _seed(email: str, password: str) -> None:
-    """Create the schema, reset the user table, and insert one verified user."""
+    """Reset the user table and insert one verified user (schema already migrated)."""
     engine = create_async_engine(settings.async_database_url, poolclass=NullPool)
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
         await conn.execute(text('TRUNCATE TABLE "user" CASCADE'))
     session_maker = async_sessionmaker(engine, expire_on_commit=False)
     async with session_maker() as session:
@@ -68,13 +67,19 @@ async def _seed(email: str, password: str) -> None:
     await engine.dispose()
 
 
-async def main() -> None:
-    """Ensure the test database exists, then seed the verified e2e user."""
+def main() -> None:
+    """Ensure the test database exists, migrate it, then seed the verified user.
+
+    ``upgrade_to_head`` is synchronous (its async env.py drives its own event
+    loop), so the create-database and seed steps each get their own ``asyncio.run``
+    around it rather than all running inside one.
+    """
     email = os.environ.get("E2E_USER_EMAIL", DEFAULT_EMAIL)
     password = os.environ.get("E2E_USER_PASSWORD", DEFAULT_PASSWORD)
-    await _ensure_database()
-    await _seed(email, password)
+    asyncio.run(_ensure_database())
+    upgrade_to_head()
+    asyncio.run(_seed(email, password))
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
