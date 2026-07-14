@@ -35,57 +35,34 @@ rest of the gate has no safe auto-fix and stays check-only.
 
 ## Tech stack
 
-- **Dependency management:** `uv` (`pyproject.toml` + `uv.lock`)
-- **Type checker:** Pyrefly, strict (`[tool.pyrefly] preset = "strict"`)
-- **Linter:** Ruff, `select = ["ALL"]` (minimal, justified ignores only)
-- **Formatter:** `ruff format`
-- **Dependency hygiene:** deptry (unused/missing/transitive/misplaced deps)
-- **Dependency vulnerabilities:** `uv audit` (see docs/security-checks.md)
-- **Secret scanning:** gitleaks (see docs/security-checks.md)
-- **Architecture enforcement:** import-linter (layering contracts in `pyproject.toml`)
-- **Tests:** pytest (unit + integration, coverage via pytest-cov); Playwright in
-  TypeScript for browser e2e (in `e2e/`) — see [docs/e2e-tests.md](docs/e2e-tests.md)
+- **Language / deps:** Python, managed with `uv` (`pyproject.toml` + `uv.lock`)
+- **Web:** FastAPI, htmx + Jinja2 templates, daisyUI components
 - **Database:** Postgres via async SQLAlchemy; schema managed by **Alembic**
   migrations (see "Database migrations")
-- **Web:** FastAPI, htmx + Jinja2 templates, daisyUI components
-- **Frontend build tooling:** pnpm (`package.json` + `pnpm-lock.yaml`), Node baked
-  into the devcontainer — see [docs/frontend-assets.md](docs/frontend-assets.md)
+- **Frontend build:** pnpm (`package.json` + `pnpm-lock.yaml`), Node baked into
+  the devcontainer — see [docs/frontend-assets.md](docs/frontend-assets.md)
+- **Tests:** pytest (unit + integration, coverage via pytest-cov); Playwright in
+  TypeScript for browser e2e in `e2e/` — see [docs/e2e-tests.md](docs/e2e-tests.md)
+- **Quality tooling** (all run by `check.sh`): Pyrefly (strict types), Ruff
+  (`select = ["ALL"]` + `ruff format`), deptry, import-linter (layering), gitleaks
+  and `uv audit` (security). See [docs/quality-gate.md](docs/quality-gate.md).
 
 ## Layout
 
+Top-level map; for the `app/` layers see "Architecture" below.
+
 ```
-app/
-  main.py                     composition root: builds the FastAPI app, wires layers
-  domain/                     pure-Python business logic (no framework imports)
-    greeting.py               e.g. normalize_name()
-  db/                         the only place that talks to Postgres (SQLAlchemy)
-    engine.py                 async engine + Base (declarative metadata)
-    models.py                 ORM table definitions (Alembic autogenerates against these)
-    migrate.py                programmatic `alembic upgrade head` (used by tests + e2e seeder)
-    users.py                  user persistence
-  web/                        presentation only: FastAPI routes + htmx + templates
-    routes.py                 APIRouter (GET /, POST /greet) + Jinja2Templates
-    templates/index.html      full page (daisyUI + htmx)
-    templates/partials/       htmx fragments
-    static/htmx.min.js        vendored htmx (committed)
-    static/app.css            vendored, prebuilt Tailwind+daisyUI CSS (committed)
-    static/app.tailwind.css   source for app.css (see docs/frontend-assets.md)
-    static/assets.sha256      fingerprint of the build inputs (staleness gate)
-tests/                        Python unit + integration tests (+ conftest DB/client fixtures)
-e2e/                          self-contained TypeScript Playwright project (browser e2e)
-  playwright.config.ts        boots the app via uvicorn + seeds a verified user
-  tests/*.spec.ts             the browser specs
-  support/                    shared config, seeded credentials, global setup
-alembic.ini                   Alembic config (script_location = migrations/; URL from app settings)
-migrations/                   Alembic migration environment
-  env.py                      async env, wired to the app's engine + models metadata
-  versions/                   the migration revisions (committed)
-scripts/check.sh              the quality gate
-scripts/e2e_seed.py           seeds the verified e2e user (reuses the app's UserManager)
-scripts/assets-fingerprint.sh hash of frontend build inputs (build + gate share it)
-package.json, pnpm-lock.yaml  frontend build deps (Tailwind/daisyUI, htmx) - pinned, committed
-.devcontainer/                image (uv + Node/pnpm + Chromium baked in) + compose (app + Postgres)
-docs/                         extra docs (quality gate, migrations, frontend assets, e2e tests, security checks, multi-agent workflow)
+app/            the application, split into layers (dependencies point downward)
+  main.py         composition root: builds the FastAPI app, wires the layers
+  domain/         pure-Python business logic (no framework imports)
+  db/             the only layer that talks to Postgres (SQLAlchemy: engine, models, migrate)
+  web/            presentation: FastAPI routes, Jinja templates, vendored static assets
+tests/          Python unit + integration tests (+ conftest DB/client fixtures)
+e2e/            self-contained TypeScript Playwright project — see docs/e2e-tests.md
+migrations/     Alembic migration environment + committed revisions
+scripts/        check.sh (the gate), fix.sh, e2e seeder, asset fingerprint
+.devcontainer/  image (uv + Node/pnpm + Chromium) + compose (app + Postgres)
+docs/           extra docs (quality gate, migrations, frontend assets, e2e, security, ...)
 ```
 
 ## Architecture
