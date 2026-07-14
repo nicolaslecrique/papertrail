@@ -45,6 +45,19 @@ It must exit 0. It runs, in order:
 If it fails, fix the code (or the test) until it passes. Do not weaken the linter,
 the type checker, or delete tests to make it pass. New behavior needs new tests.
 
+`check.sh` is **read-only** — it reports whether a change is ready and never edits
+your files. To apply the fixes that *can* be applied mechanically, run the opt-in
+companion:
+
+```bash
+./scripts/fix.sh
+```
+
+It mutates the working tree: `ruff check --fix`, `ruff format`, and
+`djlint --reformat`. Review the diff, then run `check.sh` to verify. The rest of
+the gate (types, tests, migrations, dependency and architecture checks, ...) has
+no safe auto-fix and stays check-only.
+
 ## Tech stack
 
 - **Dependency management:** `uv` (`pyproject.toml` + `uv.lock`)
