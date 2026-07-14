@@ -29,6 +29,7 @@ from app.config import settings
 from app.db.engine import get_async_session
 from app.db.migrate import upgrade_to_head
 from app.domain.email import get_email_sender
+from app.domain.pwned import get_pwned_checker
 from app.main import app
 
 _TEST_DB_NAME = "papertrail_test"
@@ -92,6 +93,21 @@ class CapturingEmailSender:
 
 
 # --------------------------------------------------------------------------- #
+# Stub breach checker — keeps the HIBP lookup off the network in tests. Set
+# ``times`` before a request to simulate a password found in a breach.
+# --------------------------------------------------------------------------- #
+@dataclass
+class StubPwnedChecker:
+    """A ``PwnedPasswordChecker`` that returns a fixed, controllable count."""
+
+    times: int = 0
+
+    async def times_pwned(self, password: str) -> int:  # noqa: ARG002
+        """Report the configured breach count for any password."""
+        return self.times
+
+
+# --------------------------------------------------------------------------- #
 # Database lifecycle.
 # --------------------------------------------------------------------------- #
 async def _ensure_test_database() -> None:
@@ -138,8 +154,16 @@ def email_sender() -> CapturingEmailSender:
     return CapturingEmailSender()
 
 
+@pytest.fixture
+def pwned_checker() -> StubPwnedChecker:
+    """Return a stub breach checker (not pwned by default), shared via DI."""
+    return StubPwnedChecker()
+
+
 @pytest_asyncio.fixture
-async def client(email_sender: CapturingEmailSender) -> AsyncIterator[AsyncClient]:
+async def client(
+    email_sender: CapturingEmailSender, pwned_checker: StubPwnedChecker
+) -> AsyncIterator[AsyncClient]:
     """Yield an httpx client bound to the app, using the test DB + fake email."""
 
     async def _session_override() -> AsyncIterator[AsyncSession]:
@@ -148,6 +172,7 @@ async def client(email_sender: CapturingEmailSender) -> AsyncIterator[AsyncClien
 
     app.dependency_overrides[get_async_session] = _session_override
     app.dependency_overrides[get_email_sender] = lambda: email_sender
+    app.dependency_overrides[get_pwned_checker] = lambda: pwned_checker
     transport = ASGITransport(app=app)
     try:
         async with AsyncClient(

@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.domain.email import EmailSender, get_email_sender
+from app.domain.pwned import PwnedPasswordChecker, get_pwned_checker
 from app.domain.users import User, UserManager, build_user_db, get_async_session
 
 cookie_transport = CookieTransport(
@@ -58,9 +59,10 @@ async def get_user_db(
 async def get_user_manager(
     user_db: Annotated[BaseUserDatabase[User, uuid.UUID], Depends(get_user_db)],
     email_sender: Annotated[EmailSender, Depends(get_email_sender)],
+    pwned_checker: Annotated[PwnedPasswordChecker, Depends(get_pwned_checker)],
 ) -> AsyncGenerator[UserManager, None]:
-    """Yield a ``UserManager`` wired to the db adapter and the email sender."""
-    yield UserManager(user_db, email_sender)
+    """Yield a ``UserManager`` wired to the db adapter, email, and breach checker."""
+    yield UserManager(user_db, email_sender, pwned_checker)
 
 
 # pyrefly 1.1.1 cannot substitute fastapi-users' bounded, cross-module ``UP``

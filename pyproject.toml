@@ -17,12 +17,12 @@ dependencies = [
     "pydantic-settings>=2.14.2",
     "aiosmtplib>=5.1.2",
     "pydantic>=2.13.4",
+    "httpx>=0.28.1",
 ]
 
 [dependency-groups]
 dev = [
     "pytest",
-    "httpx",
     "pyrefly",
     "ruff",
     "djlint>=1.40.3",

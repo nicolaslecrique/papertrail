@@ -5,7 +5,7 @@ email sender that captures the verification / reset tokens the flows emit.
 """
 
 import pytest
-from conftest import CapturingEmailSender
+from conftest import CapturingEmailSender, StubPwnedChecker
 from httpx import AsyncClient
 
 VERIFY = "verify"
@@ -141,7 +141,19 @@ async def test_register_rejects_weak_password(client: AsyncClient) -> None:
         data={"email": EMAIL, "password": "short", "confirm_password": "short"},
     )
     assert response.status_code == 200
-    assert "at least 8 characters" in response.text.lower()
+    assert "at least 12 characters" in response.text.lower()
+
+
+async def test_register_rejects_pwned_password(
+    client: AsyncClient, pwned_checker: StubPwnedChecker
+) -> None:
+    pwned_checker.times = 42
+    response = await client.post(
+        "/register",
+        data={"email": EMAIL, "password": PASSWORD, "confirm_password": PASSWORD},
+    )
+    assert response.status_code == 200
+    assert "data breach" in response.text.lower()
 
 
 async def test_register_rejects_password_containing_email(client: AsyncClient) -> None:

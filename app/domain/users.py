@@ -19,10 +19,11 @@ from app.db.models import User
 from app.db.users import build_user_db
 from app.di import Request
 from app.domain.email import EmailSender
+from app.domain.pwned import PwnedPasswordChecker
 
 __all__ = ["User", "UserManager", "build_user_db", "get_async_session"]
 
-MIN_PASSWORD_LENGTH = 8
+MIN_PASSWORD_LENGTH = 12
 
 # fastapi-users declares its ``UP`` type variable (bound to ``UserProtocol``) in a
 # separate module; pyrefly 1.1.1 fails to substitute that bounded, cross-module
@@ -39,23 +40,34 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     verification_token_secret = settings.auth_secret
 
     def __init__(
-        self, user_db: BaseUserDatabase[User, uuid.UUID], email_sender: EmailSender
+        self,
+        user_db: BaseUserDatabase[User, uuid.UUID],
+        email_sender: EmailSender,
+        pwned_checker: PwnedPasswordChecker,
     ) -> None:
-        """Wire the manager to its db adapter and email sender."""
+        """Wire the manager to its db adapter, email sender, and breach checker."""
         super().__init__(user_db)  # pyrefly: ignore[bad-argument-type]
         self._email_sender = email_sender
+        self._pwned_checker = pwned_checker
 
     @override
     # pyrefly: ignore[bad-override]
     async def validate_password(
         self, password: str, user: schemas.BaseUserCreate | User
     ) -> None:
-        """Reject weak passwords: enforce a minimum length and forbid the email."""
+        """Reject weak passwords.
+
+        Cheapest checks first (length, then the email), and only then the breach
+        lookup, which is a network call.
+        """
         if len(password) < MIN_PASSWORD_LENGTH:
             reason = f"Password must be at least {MIN_PASSWORD_LENGTH} characters."
             raise InvalidPasswordException(reason)
         if user.email.casefold() in password.casefold():
             reason = "Password must not contain your email address."
+            raise InvalidPasswordException(reason)
+        if await self._pwned_checker.times_pwned(password) > 0:
+            reason = "This password has appeared in a data breach. Choose another."
             raise InvalidPasswordException(reason)
 
     @override

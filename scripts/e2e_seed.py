@@ -23,6 +23,7 @@ from sqlalchemy.pool import NullPool
 from app.config import settings
 from app.db.migrate import upgrade_to_head
 from app.domain.email import ConsoleEmailSender
+from app.domain.pwned import DisabledPwnedPasswordChecker
 from app.domain.schemas import UserCreate
 from app.domain.users import UserManager, build_user_db
 
@@ -57,7 +58,11 @@ async def _seed(email: str, password: str) -> None:
         await conn.execute(text('TRUNCATE TABLE "user" CASCADE'))
     session_maker = async_sessionmaker(engine, expire_on_commit=False)
     async with session_maker() as session:
-        manager = UserManager(build_user_db(session), ConsoleEmailSender())
+        manager = UserManager(
+            build_user_db(session),
+            ConsoleEmailSender(),
+            DisabledPwnedPasswordChecker(),
+        )
         user = await manager.create(
             UserCreate(email=email, password=password), safe=True
         )

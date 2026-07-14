@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     # Public base URL used to build the verification / reset links in emails.
     base_url: str = "http://localhost:8000"
 
+    # Breach check at sign-up. When True, the chosen password is checked against
+    # Have I Been Pwned's k-Anonymity range API and rejected if it appears in a
+    # known breach. Disable (PWNED_CHECK_ENABLED=false) for offline dev / tests.
+    pwned_check_enabled: bool = True
+
     # Email delivery. "console" logs the link (dev/test); "smtp" sends for real.
     email_backend: Literal["console", "smtp"] = "console"
     email_from: str = "no-reply@papertrail.local"
