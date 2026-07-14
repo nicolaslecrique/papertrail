@@ -19,6 +19,7 @@ from app.db.models import User
 from app.db.users import build_user_db
 from app.di import Request
 from app.domain.email import EmailSender
+from app.domain.email_domains import DisposableEmailError, is_disposable_email
 from app.domain.pwned import PwnedPasswordChecker
 
 __all__ = ["User", "UserManager", "build_user_db", "get_async_session"]
@@ -49,6 +50,25 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         super().__init__(user_db)  # pyrefly: ignore[bad-argument-type]
         self._email_sender = email_sender
         self._pwned_checker = pwned_checker
+
+    @override
+    # pyrefly: ignore[bad-override]
+    async def create(
+        self,
+        user_create: schemas.BaseUserCreate,
+        safe: bool = False,
+        request: Request | None = None,
+    ) -> User:
+        """Register a user, refusing known disposable email domains first.
+
+        Checked before the (network) password breach lookup in
+        ``validate_password``, since it's a cheap local set membership test.
+        """
+        if is_disposable_email(user_create.email):
+            reason = "Disposable email addresses are not allowed."
+            raise DisposableEmailError(reason)
+        # pyrefly: ignore[bad-return]
+        return await super().create(user_create, safe=safe, request=request)
 
     @override
     # pyrefly: ignore[bad-override]

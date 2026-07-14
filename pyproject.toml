@@ -18,6 +18,7 @@ dependencies = [
     "aiosmtplib>=5.1.2",
     "pydantic>=2.13.4",
     "httpx>=0.28.1",
+    "disposable-email-domains>=0.0.220",
 ]
 
 [dependency-groups]

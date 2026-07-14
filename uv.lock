@@ -480,6 +480,15 @@ wheels = [
 ]
 
 [[package]]
+name = "disposable-email-domains"
+version = "0.0.220"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d3/9f/028a9a3dbc98740efaa33f4ec494314803856944bf8f5b8c1b9fcd2212f1/disposable_email_domains-0.0.220.tar.gz", hash = "sha256:2d33bbc5a4923bfd6428331145a59a83c1b7feb1e75a1336bac3c36f962d8bbf", size = 97236, upload-time = "2026-07-12T03:48:00.795Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cd/d1/9d8a910349b004a66ac802675ea3182f551811e93b63a4dc7b32ec60e690/disposable_email_domains-0.0.220-py3-none-any.whl", hash = "sha256:fde6da26fba4be4ca2a706325596d023ced3531467ebef0b099d4c510c54c6fe", size = 50078, upload-time = "2026-07-12T03:47:59.079Z" },
+]
+
+[[package]]
 name = "djlint"
 version = "1.40.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1007,6 +1016,7 @@ dependencies = [
     { name = "aiosmtplib" },
     { name = "alembic" },
     { name = "asyncpg" },
+    { name = "disposable-email-domains" },
     { name = "fastapi" },
     { name = "fastapi-users", extra = ["sqlalchemy"] },
     { name = "fastapi-users-db-sqlalchemy" },
@@ -1036,6 +1046,7 @@ requires-dist = [
     { name = "aiosmtplib", specifier = ">=5.1.2" },
     { name = "alembic", specifier = ">=1.18.5" },
     { name = "asyncpg", specifier = ">=0.31.0" },
+    { name = "disposable-email-domains", specifier = ">=0.0.220" },
     { name = "fastapi" },
     { name = "fastapi-users", extras = ["sqlalchemy"], specifier = ">=15.0.5" },
     { name = "fastapi-users-db-sqlalchemy", specifier = ">=7.0.0" },

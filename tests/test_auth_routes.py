@@ -169,6 +169,39 @@ async def test_register_rejects_password_containing_email(client: AsyncClient) -
     assert "must not contain your email" in response.text.lower()
 
 
+async def test_register_rejects_disposable_email(client: AsyncClient) -> None:
+    response = await client.post(
+        "/register",
+        data={
+            "email": "throwaway@mailinator.com",
+            "password": PASSWORD,
+            "confirm_password": PASSWORD,
+        },
+    )
+    assert response.status_code == 200
+    assert "disposable email" in response.text.lower()
+
+
+async def test_register_disposable_email_creates_no_account(
+    client: AsyncClient,
+    email_sender: CapturingEmailSender,
+) -> None:
+    await client.post(
+        "/register",
+        data={
+            "email": "throwaway@mailinator.com",
+            "password": PASSWORD,
+            "confirm_password": PASSWORD,
+        },
+    )
+    # Rejected before creation: no verification email, and login finds no user.
+    assert email_sender.sent == []
+    login = await client.post(
+        "/login", data={"email": "throwaway@mailinator.com", "password": PASSWORD}
+    )
+    assert "invalid email or password" in login.text.lower()
+
+
 async def test_register_rejects_mismatched_passwords(client: AsyncClient) -> None:
     response = await client.post(
         "/register",

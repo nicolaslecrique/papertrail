@@ -17,6 +17,7 @@ from fastapi_users import exceptions as fu_exceptions
 from jinja2 import StrictUndefined
 from pydantic import ValidationError
 
+from app.domain.email_domains import DisposableEmailError
 from app.domain.greeting import normalize_name
 from app.domain.schemas import UserCreate
 from app.domain.users import User, UserManager
@@ -159,11 +160,17 @@ async def register(
         )
     try:
         user = await user_manager.create(user_create, safe=True, request=request)
+    except DisposableEmailError as exc:
+        return _alert(request, kind="error", message=str(exc))
     except fu_exceptions.UserAlreadyExists:
         # Do not reveal whether the email is already registered.
         return _alert(request, kind="success", message=_CHECK_INBOX)
     except fu_exceptions.InvalidPasswordException as exc:
         return _alert(request, kind="error", message=str(exc.reason))
+    # `create` is overridden to return the concrete ``User``; pyrefly can't
+    # reconcile that with request_verify's cross-module ``UP`` TypeVar (see the
+    # note in app/domain/users.py). The call is sound and covered by the tests.
+    # pyrefly: ignore[bad-argument-type]
     await user_manager.request_verify(user, request)
     return _alert(request, kind="success", message=_CHECK_INBOX)
 
