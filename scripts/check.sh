@@ -82,6 +82,22 @@ uv run djlint app/web/templates --lint
 echo "==> pytest (unit + integration, with coverage report)"
 uv run pytest
 
+echo "==> alembic check (ORM models match the committed migrations)"
+# Guard against the classic drift: someone edits app/db/models.py but forgets to
+# `alembic revision --autogenerate`, so the models describe a schema the
+# migrations don't produce. Nothing else catches it - the tests build their
+# schema FROM the migrations, so a model that's ahead of them stays invisible
+# until the ORM queries a column the migrations never created. `alembic check`
+# autogenerates in-memory and exits non-zero if any upgrade ops are pending.
+#
+# Run it against the papertrail_test database, which the pytest step above just
+# created and brought to head - so the dev DB is left untouched. Re-running
+# `upgrade head` here is a harmless no-op that also documents the precondition
+# (check compares the models against a DB that is already at head).
+ALEMBIC_CHECK_DATABASE_URL="${TEST_DATABASE_URL:-postgresql://papertrail:papertrail@db:5432/papertrail_test}"
+DATABASE_URL="$ALEMBIC_CHECK_DATABASE_URL" uv run alembic upgrade head
+DATABASE_URL="$ALEMBIC_CHECK_DATABASE_URL" uv run alembic check
+
 echo "==> playwright e2e (TypeScript)"
 # The browser tests are a standalone TypeScript Playwright project under e2e/
 # (see docs/e2e-tests.md). Install its JS deps - the pnpm store caches them, and
