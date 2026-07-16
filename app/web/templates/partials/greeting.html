@@ -1,3 +1,2 @@
-<div class="alert alert-success" role="alert">
-    <span>Hello, {{ name }}!</span>
-</div>
+{% from "components/ui.html" import alert %}
+{{ alert("success", "Hello, " ~ name ~ "!") }}

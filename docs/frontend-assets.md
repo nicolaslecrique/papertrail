@@ -34,6 +34,16 @@ whole repo instead of just `app/web/templates`, and can pick up prose that
 happens to match class names (e.g. daisyUI's `diff`), making the build
 non-deterministic.
 
+The same trap applies *inside* the templates, which **are** scanned — including
+their comments and any Jinja code. Any bare word that matches a daisyUI/Tailwind
+class name leaks unused CSS into the build. This bit the alert macro in
+`templates/components/ui.html`: assembling the class attribute with `{{ … | select
+| join(" ") }}` pulled daisyUI's `.select` and `.join` component CSS into
+`app.css` purely because the filter names appear in the source. It's built by
+hand there for that reason. If a rebuild adds classes you didn't expect (compare
+the selector set, not just the minified line), look for a component-like word
+that crept into a template or its comments.
+
 ## Adding a new JS dependency
 
 ```bash

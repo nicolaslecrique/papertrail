@@ -37,6 +37,18 @@ Or just open the **Testing** panel in VS Code: the extension discovers
 `check.sh` runs the same thing in its last step — `pnpm install --frozen-lockfile`
 then `pnpm exec playwright test` — so a green local run means a green gate.
 
+This project also hosts two template-quality tools, so all the JS tooling shares
+one install that stays off the CSS fingerprint (above):
+
+- **axe-core** (`@axe-core/playwright`) — `tests/accessibility.spec.ts` runs it
+  over every rendered page and fails on broken/dead markup (dangling labels,
+  duplicate ids, bad ARIA) or WCAG A/AA violations. Just another spec, so it runs
+  with `pnpm exec playwright test`.
+- **jscpd** — copy-paste detector over `app/web/templates` (config
+  `e2e/.jscpd.json`), run in its own `check.sh` step via `pnpm exec jscpd`. It
+  keeps shared markup in `templates/components/` macros rather than pasted between
+  pages.
+
 ## How it wires up
 
 `playwright.config.ts` owns the whole lifecycle; no external services need to be

@@ -30,11 +30,20 @@ auto-fix. Run `fix.sh`, review the diff, then run `check.sh` to verify.
 11. `djlint app/web/templates --check` — template formatting (reformat with
     `uv run djlint app/web/templates --reformat`)
 12. `djlint app/web/templates --lint` — template well-formedness (unclosed tags, ...)
-13. `pytest` — Python unit + integration tests, with a coverage report (see
-    "Coverage" in AGENTS.md)
-14. `alembic check` — the ORM models in `app/db/models.py` match the committed
+13. `jscpd` — copy-paste detection over `app/web/templates`; fails if any block of
+    ≥ `minTokens` is duplicated, so shared markup stays in `templates/components/`
+    macros instead of being pasted between pages (config: `e2e/.jscpd.json`). Runs
+    from the e2e JS project, where the tool is installed.
+14. `pytest` — Python unit + integration tests, with a coverage report (see
+    "Coverage" in AGENTS.md). Includes `tests/test_templates.py`, which compiles
+    every template and fails on a **dead template** — one no route or template
+    references.
+15. `alembic check` — the ORM models in `app/db/models.py` match the committed
     migrations (see [migrations.md](migrations.md))
-15. `playwright test` — TypeScript browser e2e in `e2e/` (see [e2e-tests.md](e2e-tests.md))
+16. `playwright test` — TypeScript browser e2e in `e2e/` (see [e2e-tests.md](e2e-tests.md)),
+    including `accessibility.spec.ts`, which runs axe-core over each rendered page
+    to catch broken/dead markup (dangling labels, duplicate ids, bad ARIA) and
+    WCAG A/AA violations
 
 If it fails, fix the code (or the test) until it passes. Do not weaken the linter,
 the type checker, or delete tests to make it pass. New behavior needs new tests.

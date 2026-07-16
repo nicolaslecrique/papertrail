@@ -1,29 +1,27 @@
 {% extends "base.html" %}
+{% from "components/ui.html" import card %}
 {% block title %}papertrail — Hello World{% endblock title %}
 {% block nav %}
     <a href="/login" class="btn btn-ghost">Sign in</a>
     <a href="/register" class="btn btn-primary">Create account</a>
 {% endblock nav %}
 {% block content %}
-    <div class="card w-full max-w-md bg-base-100 shadow-xl">
-        <div class="card-body">
-            <h1 class="card-title text-2xl">Hello World</h1>
-            <p class="text-base-content/70">
-                FastAPI + htmx + Jinja2 + daisyUI. Type a name and let htmx swap in a
-                greeting.
-            </p>
-            <form hx-post="/greet"
-                  hx-target="#greeting"
-                  hx-swap="innerHTML"
-                  class="mt-2 flex flex-col gap-3">
-                <input type="text"
-                       name="name"
-                       placeholder="Your name"
-                       class="input input-bordered w-full"
-                       aria-label="Your name" />
-                <button type="submit" class="btn btn-primary">Greet me</button>
-            </form>
-            <div id="greeting" class="mt-4"></div>
-        </div>
-    </div>
+    {% call card("Hello World") %}
+        <p class="text-base-content/70">
+            FastAPI + htmx + Jinja2 + daisyUI. Type a name and let htmx swap in a
+            greeting.
+        </p>
+        <form hx-post="/greet"
+              hx-target="#greeting"
+              hx-swap="innerHTML"
+              class="mt-2 flex flex-col gap-3">
+            <input type="text"
+                   name="name"
+                   placeholder="Your name"
+                   class="input input-bordered w-full"
+                   aria-label="Your name" />
+            <button type="submit" class="btn btn-primary">Greet me</button>
+        </form>
+        <div id="greeting" class="mt-4"></div>
+    {% endcall %}
 {% endblock content %}

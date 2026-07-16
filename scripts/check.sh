@@ -79,6 +79,18 @@ uv run djlint app/web/templates --check
 echo "==> djlint --lint (template well-formedness)"
 uv run djlint app/web/templates --lint
 
+echo "==> jscpd (template copy-paste detection)"
+# Guard against duplicated markup creeping back into the templates: the pages are
+# kept DRY via the macros in templates/components/, and jscpd fails if any block
+# of >= minTokens is copy-pasted (config: e2e/.jscpd.json). jscpd ships in the e2e
+# JS project (already installed below/for e2e), so run it from there; it reads
+# .jscpd.json from that directory and scans ../app/web/templates.
+(
+  cd e2e
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 pnpm install --frozen-lockfile
+  pnpm exec jscpd
+)
+
 echo "==> pytest (unit + integration, with coverage report)"
 uv run pytest
 
