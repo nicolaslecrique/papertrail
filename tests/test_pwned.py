@@ -61,6 +61,17 @@ async def test_hibp_allows_unseen_password(monkeypatch: pytest.MonkeyPatch) -> N
     assert await HibpPwnedPasswordChecker().times_pwned(PASSWORD) == 0
 
 
+async def test_hibp_fails_open_on_malformed_body(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    # A non-numeric count must not 500 the sign-up; fail open like an outage does.
+    suffix = hashlib.sha1(PASSWORD.encode()).hexdigest().upper()[5:]  # noqa: S324
+    _patch_client(monkeypatch, body=f"{suffix}:not-a-number\r\n")
+    caplog.set_level(logging.WARNING, logger="papertrail.pwned")
+    assert await HibpPwnedPasswordChecker().times_pwned(PASSWORD) == 0
+    assert "malformed" in caplog.text.lower()
+
+
 async def test_hibp_fails_open_on_network_error(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -94,5 +105,5 @@ def test_get_pwned_checker_defaults_to_hibp() -> None:
 def test_get_pwned_checker_disabled_when_configured(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(pwned_module.settings, "pwned_check_enabled", value=False)
+    monkeypatch.setattr(pwned_module.get_settings(), "pwned_check_enabled", value=False)
     assert isinstance(get_pwned_checker(), DisabledPwnedPasswordChecker)

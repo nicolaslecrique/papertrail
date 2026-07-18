@@ -20,8 +20,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from app.config import settings
-from app.db.migrate import upgrade_to_head
+from app.config import get_settings
+from app.db.migrate import ensure_database_exists, upgrade_to_head
 from app.domain.email import ConsoleEmailSender
 from app.domain.pwned import DisabledPwnedPasswordChecker
 from app.domain.schemas import UserCreate
@@ -31,29 +31,9 @@ DEFAULT_EMAIL = "e2e-user@example.com"
 DEFAULT_PASSWORD = "e2e-password-123"  # noqa: S105 - a fixed test-only credential
 
 
-async def _ensure_database() -> None:
-    """Create the test database if it does not exist yet."""
-    admin_base, _, db_name = settings.async_database_url.rpartition("/")
-    admin_engine = create_async_engine(
-        f"{admin_base}/papertrail",
-        isolation_level="AUTOCOMMIT",
-        poolclass=NullPool,
-    )
-    async with admin_engine.connect() as conn:
-        exists = await conn.scalar(
-            text("SELECT 1 FROM pg_database WHERE datname = :name"),
-            {"name": db_name},
-        )
-        if not exists:
-            # A database name can't be a bound parameter, so it must be
-            # interpolated; db_name comes from our own DATABASE_URL, not input.
-            await conn.execute(text(f'CREATE DATABASE "{db_name}"'))
-    await admin_engine.dispose()
-
-
 async def _seed(email: str, password: str) -> None:
     """Reset the user table and insert one verified user (schema already migrated)."""
-    engine = create_async_engine(settings.async_database_url, poolclass=NullPool)
+    engine = create_async_engine(get_settings().async_database_url, poolclass=NullPool)
     async with engine.begin() as conn:
         await conn.execute(text('TRUNCATE TABLE "user" CASCADE'))
     session_maker = async_sessionmaker(engine, expire_on_commit=False)
@@ -81,7 +61,7 @@ def main() -> None:
     """
     email = os.environ.get("E2E_USER_EMAIL", DEFAULT_EMAIL)
     password = os.environ.get("E2E_USER_PASSWORD", DEFAULT_PASSWORD)
-    asyncio.run(_ensure_database())
+    asyncio.run(ensure_database_exists(get_settings().async_database_url))
     upgrade_to_head()
     asyncio.run(_seed(email, password))
 

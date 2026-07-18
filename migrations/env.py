@@ -8,7 +8,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from alembic import context
-from app.config import settings
+from app.config import get_settings
 from app.db import models  # noqa: F401  (imported for its side effect: register tables)
 from app.db.engine import Base
 
@@ -17,7 +17,7 @@ config = context.config
 
 # Take the connection URL from application settings (asyncpg driver) rather than
 # hard-coding credentials in alembic.ini.
-config.set_main_option("sqlalchemy.url", settings.async_database_url)
+config.set_main_option("sqlalchemy.url", get_settings().async_database_url)
 
 # The `configure_logger` attribute lets a programmatic caller (see
 # app/db/migrate.py) skip this so it doesn't disable the app's own loggers; the

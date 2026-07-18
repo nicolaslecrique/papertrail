@@ -13,7 +13,7 @@ from typing import Protocol
 
 import httpx
 
-from app.config import settings
+from app.config import get_settings
 
 _logger = logging.getLogger("papertrail.pwned")
 
@@ -47,7 +47,13 @@ class HibpPwnedPasswordChecker:
         except httpx.HTTPError:
             _logger.warning("HIBP breach check unavailable; allowing the password")
             return 0
-        return _count_in_range(response.text, suffix)
+        try:
+            return _count_in_range(response.text, suffix)
+        except ValueError:
+            # A malformed range body (non-numeric count) must not 500 the sign-up;
+            # fail open like an outage does, since the length rule still applies.
+            _logger.warning("Malformed HIBP range response; allowing the password")
+            return 0
 
 
 class DisabledPwnedPasswordChecker:
@@ -72,6 +78,6 @@ def _count_in_range(body: str, suffix: str) -> int:
 
 def get_pwned_checker() -> PwnedPasswordChecker:
     """Return the breach checker selected by ``settings.pwned_check_enabled``."""
-    if settings.pwned_check_enabled:
+    if get_settings().pwned_check_enabled:
         return HibpPwnedPasswordChecker()
     return DisabledPwnedPasswordChecker()

@@ -20,22 +20,24 @@ from fastapi_users.authentication import (
 from fastapi_users.db import BaseUserDatabase
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
+from app.config import get_settings
 from app.domain.email import EmailSender, get_email_sender
 from app.domain.pwned import PwnedPasswordChecker, get_pwned_checker
 from app.domain.users import User, UserManager, build_user_db, get_async_session
 
+_settings = get_settings()
 cookie_transport = CookieTransport(
-    cookie_name=settings.cookie_name,
-    cookie_max_age=settings.access_token_lifetime_seconds,
-    cookie_secure=settings.cookie_secure,
+    cookie_name=_settings.cookie_name,
+    cookie_max_age=_settings.access_token_lifetime_seconds,
+    cookie_secure=_settings.cookie_secure,
     cookie_httponly=True,
-    cookie_samesite=settings.cookie_samesite,
+    cookie_samesite=_settings.cookie_samesite,
 )
 
 
 def get_jwt_strategy() -> JWTStrategy[User, uuid.UUID]:
     """Build the stateless JWT strategy from the configured secret + lifetime."""
+    settings = get_settings()
     return JWTStrategy(
         secret=settings.auth_secret,
         lifetime_seconds=settings.access_token_lifetime_seconds,

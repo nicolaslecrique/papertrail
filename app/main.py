@@ -13,8 +13,10 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 
-from app.db.engine import engine
+from app.db.engine import dispose_engine
 from app.web.api import router
+
+_seen_operation_ids: set[str] = set()
 
 
 def _operation_id(route: APIRoute) -> str:
@@ -24,7 +26,18 @@ def _operation_id(route: APIRoute) -> str:
     unwieldy generated client names (``registerApiAuthRegisterPost``). The route
     names are already unique here, so the bare name yields clean SDK symbols
     (``register``, ``usersCurrentUser``, ...) for @hey-api/openapi-ts.
+
+    ``operationId`` must be globally unique or the generated client silently
+    collapses two routes, so a collision is turned into a loud import-time error.
     """
+    if route.name in _seen_operation_ids:
+        msg = (
+            f"Duplicate operationId {route.name!r}: route names must be unique for"
+            " the generated client. Give one of the colliding routes an explicit"
+            " name."
+        )
+        raise ValueError(msg)
+    _seen_operation_ids.add(route.name)
     return route.name
 
 
@@ -53,7 +66,7 @@ _configure_logging()
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None]:
     """Dispose of the database engine's connection pool on shutdown."""
     yield
-    await engine.dispose()
+    await dispose_engine()
 
 
 app = FastAPI(

@@ -11,7 +11,7 @@ from typing import Protocol
 
 import aiosmtplib
 
-from app.config import settings
+from app.config import get_settings
 
 _logger = logging.getLogger("papertrail.email")
 
@@ -27,11 +27,11 @@ class EmailSender(Protocol):
 
 
 def _verify_url(token: str) -> str:
-    return f"{settings.base_url}/verify?token={token}"
+    return f"{get_settings().base_url}/verify?token={token}"
 
 
 def _reset_url(token: str) -> str:
-    return f"{settings.base_url}/reset-password?token={token}"
+    return f"{get_settings().base_url}/reset-password?token={token}"
 
 
 class ConsoleEmailSender:
@@ -68,6 +68,7 @@ class SmtpEmailSender:
         )
 
     async def _send(self, recipient: str, subject: str, body: str) -> None:
+        settings = get_settings()
         message = EmailMessage()
         message["From"] = settings.email_from
         message["To"] = recipient
@@ -85,6 +86,6 @@ class SmtpEmailSender:
 
 def get_email_sender() -> EmailSender:
     """Return the email sender selected by ``settings.email_backend``."""
-    if settings.email_backend == "smtp":
+    if get_settings().email_backend == "smtp":
         return SmtpEmailSender()
     return ConsoleEmailSender()

@@ -8,7 +8,7 @@ the demo greeting. No business logic lives here; the rules live in ``app.domain`
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi_users import exceptions as fu_exceptions
 from pydantic import BaseModel
 
@@ -66,7 +66,7 @@ async def register(
 
 
 @router.get("/greeting", tags=["greeting"])
-def greeting(name: str = "") -> MessageResponse:
+async def greeting(name: Annotated[str, Query()] = "") -> MessageResponse:
     """Return a greeting for ``name``, falling back to a default when blank."""
     return MessageResponse(message=f"Hello, {normalize_name(name)}!")
 

@@ -4,6 +4,7 @@ These exercise the full stack (``/api`` routes -> UserManager -> Postgres) with 
 fake email sender that captures the verification / reset tokens the flows emit.
 """
 
+import pytest
 from conftest import CapturingEmailSender, StubPwnedChecker
 from httpx import AsyncClient, Response
 
@@ -233,3 +234,65 @@ async def test_logout_clears_cookie(
     # After logout the protected endpoint is unauthorized again.
     me = await client.get("/api/users/me")
     assert me.status_code == 401
+
+
+async def test_register_survives_email_send_failure(
+    client: AsyncClient,
+    email_sender: CapturingEmailSender,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The account is committed before the verification mail is sent, so a mail
+    # failure must not turn the neutral 202 into a 500 (which would both leak that
+    # the address was new and strand the user unverified).
+    async def _boom(_email: str, _token: str) -> None:
+        msg = "smtp is down"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(email_sender, "send_verification", _boom)
+    response = await client.post(
+        "/api/auth/register", json={"email": EMAIL, "password": PASSWORD}
+    )
+    assert response.status_code == 202
+    assert response.json() == {"message": _CHECK_INBOX}
+
+
+async def test_login_cookie_has_security_attributes(
+    client: AsyncClient,
+    email_sender: CapturingEmailSender,
+) -> None:
+    await _register(client)
+    await _verify(client, email_sender)
+    response = await _login(client)
+    set_cookie = response.headers.get("set-cookie", "")
+    # httponly keeps the JWT out of JS; SameSite=lax is the configured default.
+    assert "HttpOnly" in set_cookie
+    assert "SameSite=lax" in set_cookie
+    # cookie_secure is False in tests/dev, so the cookie is not marked Secure.
+    assert "Secure" not in set_cookie
+
+
+async def test_update_own_password(
+    client: AsyncClient,
+    email_sender: CapturingEmailSender,
+) -> None:
+    await _register(client)
+    await _verify(client, email_sender)
+    await _login(client)
+    patch = await client.patch("/api/users/me", json={"password": NEW_PASSWORD})
+    assert patch.status_code == 200
+    # The new password now authenticates and the old one no longer does.
+    assert (await _login(client, password=NEW_PASSWORD)).status_code == 204
+    assert (await _login(client, password=PASSWORD)).status_code == 400
+
+
+async def test_non_superuser_cannot_read_other_users(
+    client: AsyncClient,
+    email_sender: CapturingEmailSender,
+) -> None:
+    await _register(client)
+    await _verify(client, email_sender)
+    await _login(client)
+    # /users/{id} is superuser-only; a signed-in regular user is forbidden.
+    other_id = "00000000-0000-0000-0000-000000000000"
+    response = await client.get(f"/api/users/{other_id}")
+    assert response.status_code == 403

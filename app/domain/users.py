@@ -6,6 +6,7 @@ also re-exports the db session and adapter factories so the web layer can build
 its FastAPI dependency graph without importing ``app.db`` directly.
 """
 
+import logging
 import uuid
 from typing import override
 
@@ -13,7 +14,7 @@ from fastapi_users import BaseUserManager, UUIDIDMixin, schemas
 from fastapi_users.db import BaseUserDatabase
 from fastapi_users.exceptions import InvalidPasswordException
 
-from app.config import settings
+from app.config import get_settings
 from app.db.engine import get_async_session
 from app.db.models import User
 from app.db.users import build_user_db
@@ -23,6 +24,8 @@ from app.domain.email_domains import DisposableEmailError, is_disposable_email
 from app.domain.pwned import PwnedPasswordChecker
 
 __all__ = ["User", "UserManager", "build_user_db", "get_async_session"]
+
+_logger = logging.getLogger("papertrail.users")
 
 MIN_PASSWORD_LENGTH = 12
 
@@ -37,9 +40,6 @@ MIN_PASSWORD_LENGTH = 12
 class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     """Coordinates registration, email verification, and password resets."""
 
-    reset_password_token_secret = settings.auth_secret
-    verification_token_secret = settings.auth_secret
-
     def __init__(
         self,
         user_db: BaseUserDatabase[User, uuid.UUID],
@@ -48,6 +48,12 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
     ) -> None:
         """Wire the manager to its db adapter, email sender, and breach checker."""
         super().__init__(user_db)  # pyrefly: ignore[bad-argument-type]
+        # fastapi-users signs the verify / reset tokens with these; read from
+        # settings here (not at class-definition time) so importing the module
+        # never touches configuration.
+        secret = get_settings().auth_secret
+        self.reset_password_token_secret = secret
+        self.verification_token_secret = secret
         self._email_sender = email_sender
         self._pwned_checker = pwned_checker
 
@@ -116,8 +122,18 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
         token: str,
         request: Request | None = None,
     ) -> None:
-        """Send the email-confirmation link once a verification token is issued."""
-        await self._email_sender.send_verification(user.email, token)
+        """Send the email-confirmation link once a verification token is issued.
+
+        fastapi-users has already committed the new account by the time this fires,
+        so a transient mail failure must not bubble up: it would turn the neutral
+        ``202`` into a ``500`` (leaking that the address was new) and strand the
+        user unverified. Log and move on — the user can re-request verification.
+        """
+        try:
+            await self._email_sender.send_verification(user.email, token)
+        except Exception:
+            # Never fail registration on a mail error: log and move on.
+            _logger.exception("Failed to send verification email to %s", user.email)
 
     @override
     # pyrefly: ignore[bad-override]

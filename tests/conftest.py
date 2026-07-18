@@ -1,8 +1,10 @@
 """Shared pytest fixtures: an async test database and an HTTP client.
 
 The app is pointed at a dedicated ``papertrail_test`` database (created on demand)
-and a throwaway auth secret. This *must* happen before importing anything that
-reads settings, because the engine and ``Settings`` are built at import time.
+and a throwaway auth secret. These env vars are set *before* importing the app
+because the auth backend reads settings while it is being assembled at import time
+(``app.web.auth`` builds its cookie transport from :func:`get_settings`), and
+:func:`get_settings` caches the first read.
 """
 
 import asyncio
@@ -25,14 +27,12 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from app.config import settings
+from app.config import get_settings
 from app.db.engine import get_async_session
-from app.db.migrate import upgrade_to_head
+from app.db.migrate import ensure_database_exists, upgrade_to_head
 from app.domain.email import get_email_sender
 from app.domain.pwned import get_pwned_checker
 from app.main import app
-
-_TEST_DB_NAME = "papertrail_test"
 
 
 def _run[T](coro: Coroutine[object, object, T]) -> T:
@@ -57,7 +57,9 @@ def _run[T](coro: Coroutine[object, object, T]) -> T:
 # A NullPool engine never caches connections, so it can be used safely from any
 # event loop (the per-test loop or a throwaway asyncio.run loop) without
 # asyncpg's "attached to a different loop" errors.
-_test_engine = create_async_engine(settings.async_database_url, poolclass=NullPool)
+_test_engine = create_async_engine(
+    get_settings().async_database_url, poolclass=NullPool
+)
 _test_session_maker = async_sessionmaker(_test_engine, expire_on_commit=False)
 
 
@@ -110,24 +112,6 @@ class StubPwnedChecker:
 # --------------------------------------------------------------------------- #
 # Database lifecycle.
 # --------------------------------------------------------------------------- #
-async def _ensure_test_database() -> None:
-    """Create the ``papertrail_test`` database if it does not exist yet."""
-    admin_url = settings.async_database_url.rsplit("/", 1)[0] + "/papertrail"
-    admin_engine = create_async_engine(
-        admin_url,
-        isolation_level="AUTOCOMMIT",
-        poolclass=NullPool,
-    )
-    async with admin_engine.connect() as conn:
-        exists = await conn.scalar(
-            text("SELECT 1 FROM pg_database WHERE datname = :name"),
-            {"name": _TEST_DB_NAME},
-        )
-        if not exists:
-            await conn.execute(text(f'CREATE DATABASE "{_TEST_DB_NAME}"'))
-    await admin_engine.dispose()
-
-
 @pytest.fixture(scope="session", autouse=True)
 def _prepare_database() -> None:
     """Create the test database and bring its schema up to head once per session.
@@ -136,7 +120,7 @@ def _prepare_database() -> None:
     ``metadata.create_all``), so every test run exercises them. ``upgrade_to_head``
     is synchronous, so it runs outside the ``_run`` helper's event loop.
     """
-    _run(_ensure_test_database())
+    _run(ensure_database_exists(get_settings().async_database_url))
     upgrade_to_head()
 
 
