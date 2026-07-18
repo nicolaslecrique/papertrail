@@ -30,7 +30,9 @@ function Home() {
           }}
         />
         <p data-testid="greeting" className="text-lg">
-          {greeting.data?.message ?? "…"}
+          {greeting.isError
+            ? "Couldn’t load the greeting. Please try again."
+            : (greeting.data?.message ?? "…")}
         </p>
       </div>
     </section>

@@ -4,10 +4,8 @@ import { useState } from "react";
 
 import { resetResetPasswordMutation } from "@/client/@tanstack/react-query.gen";
 import { AuthShell } from "@/components/auth-shell";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Field, FormError } from "@/components/form";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { apiErrorMessage } from "@/lib/errors";
 
 export const Route = createFileRoute("/reset-password")({
@@ -49,23 +47,19 @@ function ResetPasswordPage() {
           );
         }}
       >
-        <div className="space-y-2">
-          <Label htmlFor="password">New password</Label>
-          <Input
-            id="password"
-            type="password"
-            autoComplete="new-password"
-            required
-            value={password}
-            onChange={(event) => {
-              setPassword(event.target.value);
-            }}
-          />
-        </div>
+        <Field
+          label="New password"
+          id="password"
+          type="password"
+          autoComplete="new-password"
+          required
+          value={password}
+          onChange={(event) => {
+            setPassword(event.target.value);
+          }}
+        />
         {reset.isError ? (
-          <Alert variant="destructive">
-            <AlertDescription>{apiErrorMessage(reset.error)}</AlertDescription>
-          </Alert>
+          <FormError>{apiErrorMessage(reset.error)}</FormError>
         ) : null}
         <Button type="submit" className="w-full" disabled={reset.isPending}>
           Update password

@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-import { E2E_EMAIL, E2E_PASSWORD } from "../support/credentials";
+import { signIn } from "../support/auth";
 
 // An accessibility gate over the rendered React pages. axe-core catches the class
 // of problems component snapshots miss: labels pointing at controls that don't
@@ -37,11 +37,7 @@ for (const path of ANON_PAGES) {
 
 test("no accessibility violations on the dashboard", async ({ page }) => {
   // The dashboard is behind auth, so sign in with the seeded user first.
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(E2E_EMAIL);
-  await page.getByLabel("Password").fill(E2E_PASSWORD);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL(/\/dashboard/);
+  await signIn(page);
 
   const results = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
   expect(results.violations).toEqual([]);

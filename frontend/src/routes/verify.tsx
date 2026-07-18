@@ -1,33 +1,37 @@
-import { useMutation } from "@tanstack/react-query";
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef } from "react";
 
-import { verifyVerifyMutation } from "@/client/@tanstack/react-query.gen";
+import { verifyVerify } from "@/client";
 import { AuthShell } from "@/components/auth-shell";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { apiErrorMessage } from "@/lib/errors";
+
+type VerifyResult =
+  | { status: "missing" }
+  | { status: "ok" }
+  | { status: "error"; message: string };
 
 export const Route = createFileRoute("/verify")({
   validateSearch: (search: Record<string, unknown>): { token: string } => ({
     token: typeof search.token === "string" ? search.token : "",
   }),
   ssr: false,
+  loaderDeps: ({ search }) => ({ token: search.token }),
+  // Confirm in the loader (once, deterministically) rather than from an effect —
+  // no run-once ref and no StrictMode double-fire.
+  loader: async ({ deps }): Promise<VerifyResult> => {
+    if (!deps.token) {
+      return { status: "missing" };
+    }
+    const { error } = await verifyVerify({ body: { token: deps.token } });
+    return error === undefined
+      ? { status: "ok" }
+      : { status: "error", message: apiErrorMessage(error) };
+  },
   component: VerifyPage,
 });
 
 function VerifyPage() {
-  const { token } = Route.useSearch();
-  const verify = useMutation(verifyVerifyMutation());
-  const { mutate } = verify;
-  const started = useRef(false);
-
-  useEffect(() => {
-    if (started.current || !token) {
-      return;
-    }
-    started.current = true;
-    mutate({ body: { token } });
-  }, [token, mutate]);
+  const result = Route.useLoaderData();
 
   return (
     <AuthShell
@@ -40,18 +44,20 @@ function VerifyPage() {
         </p>
       }
     >
-      {verify.isSuccess ? (
+      {result.status === "ok" ? (
         <Alert>
           <AlertDescription>
             Your email is confirmed. You can now sign in.
           </AlertDescription>
         </Alert>
-      ) : verify.isError ? (
-        <Alert variant="destructive">
-          <AlertDescription>{apiErrorMessage(verify.error)}</AlertDescription>
-        </Alert>
       ) : (
-        <p className="text-sm text-muted-foreground">Confirming…</p>
+        <Alert variant="destructive">
+          <AlertDescription>
+            {result.status === "missing"
+              ? "This confirmation link is missing its token. Open the most recent link from your email."
+              : result.message}
+          </AlertDescription>
+        </Alert>
       )}
     </AuthShell>
   );

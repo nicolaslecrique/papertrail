@@ -4,10 +4,8 @@ import { useState } from "react";
 
 import { authJwtCookieLoginMutation } from "@/client/@tanstack/react-query.gen";
 import { AuthShell } from "@/components/auth-shell";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Field, FormError } from "@/components/form";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { apiErrorMessage } from "@/lib/errors";
 
 // Client-rendered: the auth screens are the interactive app shell, not public
@@ -56,36 +54,30 @@ function LoginPage() {
           );
         }}
       >
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(event) => {
-              setEmail(event.target.value);
-            }}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
-          <Input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            value={password}
-            onChange={(event) => {
-              setPassword(event.target.value);
-            }}
-          />
-        </div>
+        <Field
+          label="Email"
+          id="email"
+          type="email"
+          autoComplete="email"
+          required
+          value={email}
+          onChange={(event) => {
+            setEmail(event.target.value);
+          }}
+        />
+        <Field
+          label="Password"
+          id="password"
+          type="password"
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={(event) => {
+            setPassword(event.target.value);
+          }}
+        />
         {login.isError ? (
-          <Alert variant="destructive">
-            <AlertDescription>{apiErrorMessage(login.error)}</AlertDescription>
-          </Alert>
+          <FormError>{apiErrorMessage(login.error)}</FormError>
         ) : null}
         <Button type="submit" className="w-full" disabled={login.isPending}>
           Sign in

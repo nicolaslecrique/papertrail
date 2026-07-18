@@ -4,10 +4,9 @@ import { useState } from "react";
 
 import { registerMutation } from "@/client/@tanstack/react-query.gen";
 import { AuthShell } from "@/components/auth-shell";
+import { Field, FormError } from "@/components/form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { apiErrorMessage } from "@/lib/errors";
 
 export const Route = createFileRoute("/register")({
@@ -51,56 +50,42 @@ function RegisterPage() {
             register.mutate({ body: { email, password } });
           }}
         >
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(event) => {
-                setEmail(event.target.value);
-              }}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="new-password"
-              required
-              value={password}
-              onChange={(event) => {
-                setPassword(event.target.value);
-              }}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="confirm">Confirm password</Label>
-            <Input
-              id="confirm"
-              type="password"
-              autoComplete="new-password"
-              required
-              value={confirm}
-              onChange={(event) => {
-                setConfirm(event.target.value);
-              }}
-            />
-          </div>
-          {mismatch ? (
-            <Alert variant="destructive">
-              <AlertDescription>Passwords do not match.</AlertDescription>
-            </Alert>
-          ) : null}
+          <Field
+            label="Email"
+            id="email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(event) => {
+              setEmail(event.target.value);
+            }}
+          />
+          <Field
+            label="Password"
+            id="password"
+            type="password"
+            autoComplete="new-password"
+            required
+            value={password}
+            onChange={(event) => {
+              setPassword(event.target.value);
+            }}
+          />
+          <Field
+            label="Confirm password"
+            id="confirm"
+            type="password"
+            autoComplete="new-password"
+            required
+            value={confirm}
+            onChange={(event) => {
+              setConfirm(event.target.value);
+            }}
+          />
+          {mismatch ? <FormError>Passwords do not match.</FormError> : null}
           {register.isError ? (
-            <Alert variant="destructive">
-              <AlertDescription>
-                {apiErrorMessage(register.error)}
-              </AlertDescription>
-            </Alert>
+            <FormError>{apiErrorMessage(register.error)}</FormError>
           ) : null}
           <Button
             type="submit"

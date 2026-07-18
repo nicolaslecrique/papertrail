@@ -4,10 +4,9 @@ import { useState } from "react";
 
 import { resetForgotPasswordMutation } from "@/client/@tanstack/react-query.gen";
 import { AuthShell } from "@/components/auth-shell";
+import { Field } from "@/components/form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/forgot-password")({
   ssr: false,
@@ -44,19 +43,17 @@ function ForgotPasswordPage() {
             forgot.mutate({ body: { email } });
           }}
         >
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(event) => {
-                setEmail(event.target.value);
-              }}
-            />
-          </div>
+          <Field
+            label="Email"
+            id="email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(event) => {
+              setEmail(event.target.value);
+            }}
+          />
           <Button type="submit" className="w-full" disabled={forgot.isPending}>
             Send reset link
           </Button>
