@@ -17,7 +17,6 @@ const config = defineConfig({
   resolve: { tsconfigPaths: true },
   plugins: [
     nitro({
-      rollupConfig: { external: [/^@sentry\//] },
       devProxy: {
         "/api": { target: `${apiTarget}/api`, changeOrigin: true },
       },

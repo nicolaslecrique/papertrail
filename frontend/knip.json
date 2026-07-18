@@ -7,7 +7,6 @@
     "@tanstack/router-plugin",
     "clsx",
     "tailwind-merge",
-    "lucide-react",
     "tw-animate-css"
   ]
 }
