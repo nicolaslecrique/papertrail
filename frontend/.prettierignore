@@ -1,0 +1,11 @@
+# Generated API client (owned by @hey-api/openapi-ts)
+src/client
+# Generated route tree (owned by @tanstack/router-plugin)
+src/routeTree.gen.ts
+# Build output
+.output
+.nitro
+.tanstack
+dist
+# Lockfile
+pnpm-lock.yaml

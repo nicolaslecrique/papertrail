@@ -3,7 +3,9 @@
 Guidance for AI agents (and humans) working in this repo.
 
 `papertrail` is a tool to study the manipulation of science by lobbies. This is
-currently a **Hello World** slice that stands up the full production stack end to end.
+currently a **Hello World** slice that stands up the full production stack end to end:
+a FastAPI **REST API** backend and a separate **React / TanStack Start** frontend that
+consumes it through a fully-typed, generated client.
 
 ## Git workflow: no pull requests
 
@@ -19,9 +21,11 @@ Before you consider **any** change complete, run:
 ./scripts/check.sh
 ```
 
-It must exit 0. It's a read-only gate that runs, in order, dependency/asset/secret
-checks, formatting, linting, type checking, dependency and architecture contracts,
-template checks, the pytest suite, `alembic check`, and the Playwright e2e suite.
+It must exit 0. It's a read-only gate that runs, in order: the **Python backend**
+gate (secret scan, dependency audit, `ruff` format + lint, `pyrefly` strict types,
+`deptry`, `import-linter`, the pytest suite, `alembic check`), then the **frontend**
+gate (API-client drift guard, Prettier, ESLint, `tsc`, Knip, dependency-cruiser,
+the production build), then the **Playwright e2e** suite (which boots both tiers).
 The script is the source of truth for the exact steps — read it, or see
 [docs/quality-gate.md](docs/quality-gate.md) for what each one does.
 
@@ -29,76 +33,98 @@ If it fails, fix the code (or the test) until it passes. Do not weaken the linte
 the type checker, or delete tests to make it pass. New behavior needs new tests.
 
 `check.sh` never edits your files. To apply the fixes that *can* be applied
-mechanically (`ruff check --fix`, `ruff format`, `djlint --reformat`), run the
-opt-in companion `./scripts/fix.sh`, review the diff, then re-run `check.sh`. The
-rest of the gate has no safe auto-fix and stays check-only.
+mechanically (`ruff check --fix`, `ruff format`, `prettier --write`, `eslint --fix`),
+run the opt-in companion `./scripts/fix.sh`, review the diff, then re-run `check.sh`.
+The rest of the gate has no safe auto-fix and stays check-only.
 
 ## Tech stack
 
 - **Language / deps:** Python, managed with `uv` (`pyproject.toml` + `uv.lock`)
-- **Web:** FastAPI, htmx + Jinja2 templates, daisyUI components
+- **Backend:** FastAPI JSON REST API; auth via **fastapi-users** (JWT in an httponly
+  cookie). No server-rendered HTML — the API only speaks JSON under `/api`.
+- **Frontend:** **React 19 + TanStack Start** (SSR) in `frontend/`, styled with
+  **Tailwind CSS v4** + **shadcn/ui**; server state via **TanStack Query**; the API
+  client is generated from the backend's OpenAPI schema by **@hey-api/openapi-ts**.
+  Package manager **pnpm**. See [docs/frontend.md](docs/frontend.md).
 - **Database:** Postgres via async SQLAlchemy; schema managed by **Alembic**
   migrations (see "Database migrations")
-- **Frontend build:** pnpm (`package.json` + `pnpm-lock.yaml`), Node baked into
-  the devcontainer — see [docs/frontend-assets.md](docs/frontend-assets.md)
 - **Tests:** pytest (unit + integration, coverage via pytest-cov); Playwright in
   TypeScript for browser e2e in `e2e/` — see [docs/e2e-tests.md](docs/e2e-tests.md)
-- **Quality tooling** (all run by `check.sh`): Pyrefly (strict types), Ruff
-  (`select = ["ALL"]` + `ruff format`), deptry, import-linter (layering), gitleaks
-  and `uv audit` (security). See [docs/quality-gate.md](docs/quality-gate.md).
+- **Quality tooling** (all run by `check.sh`): backend — Pyrefly (strict types),
+  Ruff (`select = ["ALL"]` + `ruff format`), deptry, import-linter (layering),
+  gitleaks + `uv audit` (security); frontend — strict `tsc`, typescript-eslint
+  (strict, type-checked) with the TanStack Router/Query and Tailwind plugins,
+  Prettier, Knip, dependency-cruiser. See [docs/quality-gate.md](docs/quality-gate.md).
 
 ## Layout
 
 Top-level map; for the `app/` layers see "Architecture" below.
 
 ```
-app/            the application, split into layers (dependencies point downward)
+app/            the FastAPI REST API, split into layers (dependencies point downward)
   main.py         composition root: builds the FastAPI app, wires the layers
   domain/         pure-Python business logic (no framework imports)
   db/             the only layer that talks to Postgres (SQLAlchemy: engine, models, migrate)
-  web/            presentation: FastAPI routes, Jinja templates, vendored static assets
+  web/            presentation: FastAPI routers (JSON), auth wiring
+frontend/       React / TanStack Start SPA+SSR app — see docs/frontend.md
+  src/routes/     file-based routes (pages)
+  src/client/     generated, typed API client (owned by @hey-api/openapi-ts)
+  src/components/ui/  vendored shadcn/ui components (updated from the shadcn reference)
+openapi.json    committed OpenAPI schema the client is generated from
 tests/          Python unit + integration tests (+ conftest DB/client fixtures)
 e2e/            self-contained TypeScript Playwright project — see docs/e2e-tests.md
 migrations/     Alembic migration environment + committed revisions
-scripts/        check.sh (the gate), fix.sh, e2e seeder, asset fingerprint
+scripts/        check.sh (the gate), fix.sh, export-openapi.py, e2e seeder
 .devcontainer/  image (uv + Node/pnpm + Chromium) + compose (app + Postgres)
-docs/           extra docs (quality gate, migrations, frontend assets, e2e, security, ...)
+docs/           extra docs (quality gate, migrations, frontend, e2e, security, ...)
 ```
 
 ## Architecture
 
-The code is split into three layers, enforced by import-linter contracts in
+The backend is split into three layers, enforced by import-linter contracts in
 `pyproject.toml`. Dependencies only ever point **downward**:
 
 ```
-web (FastAPI, htmx, Jinja)  →  domain (pure Python)  →  db (Postgres, SQLAlchemy)
+web (FastAPI REST)  →  domain (pure Python)  →  db (Postgres, SQLAlchemy)
 ```
 
-- **`app.web`** — presentation only: parse the request, call the domain, render a
-  template. **No business logic in routes or templates.** May import the domain,
-  but **never the db directly** — persistence goes through the domain.
+- **`app.web`** — presentation only: parse the request, call the domain, return
+  JSON. **No business logic in routes.** May import the domain, but **never the db
+  directly** — persistence goes through the domain.
 - **`app.domain`** — the business logic, and the layer that orchestrates
   persistence by calling `app.db`. Pure Python: no web framework and no direct
-  SQLAlchemy (fastapi/starlette/jinja2/sqlalchemy are *forbidden* here), which
-  keeps the logic trivial to unit-test in isolation. Put the real rules here.
+  SQLAlchemy (fastapi/starlette/sqlalchemy are *forbidden* here), which keeps the
+  logic trivial to unit-test in isolation. Put the real rules here.
 - **`app.db`** — the *only* layer that touches the database (SQLAlchemy, Postgres).
   The lowest layer: it must not import the domain or web layers, nor any web
   framework.
 - **`app.main`** — the composition root that assembles the layers. No logic.
 
 When you add a feature: business rules go in `domain`, persistence in `db`,
-HTTP/rendering in `web`. If `lint-imports` reports a broken contract, the fix is
-almost always to move code to the right layer — not to loosen the contract.
+HTTP/JSON in `web`. If `lint-imports` reports a broken contract, the fix is almost
+always to move code to the right layer — not to loosen the contract.
+
+The **frontend** talks to the backend only through the generated client in
+`frontend/src/client/`. When you change an API route or a Pydantic model,
+regenerate the schema and client (see [docs/frontend.md](docs/frontend.md)); the
+gate fails if they drift.
 
 ## Common tasks
 
-Run the app locally (VS Code forwards the port):
+Run the backend API (VS Code forwards the port):
 
 ```bash
 uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Run the browser e2e tests (see [docs/e2e-tests.md](docs/e2e-tests.md)):
+Run the frontend dev server (proxies `/api` to the backend above):
+
+```bash
+cd frontend && pnpm install && pnpm dev   # http://localhost:3000
+```
+
+Run the browser e2e tests (boots both tiers itself — see
+[docs/e2e-tests.md](docs/e2e-tests.md)):
 
 ```bash
 cd e2e && pnpm install && pnpm exec playwright test
@@ -107,8 +133,9 @@ cd e2e && pnpm install && pnpm exec playwright test
 Add dependencies:
 
 ```bash
-uv add <pkg>            # runtime dependency
-uv add --dev <pkg>      # dev/test dependency
+uv add <pkg>                    # backend runtime dependency
+uv add --dev <pkg>              # backend dev/test dependency
+cd frontend && pnpm add <pkg>   # frontend dependency
 ```
 
 ## Database migrations
@@ -128,12 +155,14 @@ an important path (error branch, edge case, new domain rule) worth a test, or
 genuinely trivial. Don't chase 100% for its own sake, but new behavior still
 needs new tests.
 
-## Frontend assets are vendored (offline, no CDN)
+## Frontend
 
-htmx and the Tailwind/daisyUI CSS are committed under `app/web/static/` and built
-from pinned JS/CSS dependencies via pnpm. See
-[docs/frontend-assets.md](docs/frontend-assets.md) for how the build works, when
-to rebuild, and how to add a new JS dependency.
+The frontend is a self-contained pnpm project in `frontend/` (React + TanStack
+Start, Tailwind v4, shadcn/ui). Its typed API client is generated from the
+committed `openapi.json`, and the shadcn components under `src/components/ui/` are
+treated as vendored (kept pristine so they can be updated from the shadcn
+reference). See [docs/frontend.md](docs/frontend.md) for the build, the client
+generation + drift guard, selective SSR, and how to add UI components.
 
 ## Security checks
 
@@ -145,9 +174,9 @@ what to do when one flags something.
 ## End-to-end tests
 
 The browser e2e tests are a self-contained **TypeScript Playwright** project in
-`e2e/` (TypeScript is Playwright's primary language, so the VS Code Playwright
-Test extension works). It boots the app via uvicorn against a test database and
-seeds a verified user in its global setup. Chromium is baked into the devcontainer
-image and driven offline; keep the `@playwright/test` pin in lockstep with the
-Dockerfile (check.sh guards this). See [docs/e2e-tests.md](docs/e2e-tests.md) for
-how to run and write them, and the baked-browser details.
+`e2e/`. It boots **both** tiers — the FastAPI API and the TanStack Start frontend
+(which proxies `/api` to the API) — against a test database, and seeds a verified
+user in its global setup. Chromium is baked into the devcontainer image and driven
+offline; keep the `@playwright/test` pin in lockstep with the Dockerfile (check.sh
+guards this). See [docs/e2e-tests.md](docs/e2e-tests.md) for how to run and write
+them, and the baked-browser details.

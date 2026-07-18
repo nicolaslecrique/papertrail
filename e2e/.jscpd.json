@@ -1,8 +1,0 @@
-{
-  "path": ["../app/web/templates"],
-  "formatsExts": { "markup": ["html"] },
-  "minTokens": 50,
-  "threshold": 0,
-  "reporters": ["console"],
-  "absolute": true
-}

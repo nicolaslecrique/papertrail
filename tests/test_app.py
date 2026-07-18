@@ -1,4 +1,4 @@
-"""Unit tests for the FastAPI routes using Starlette's TestClient."""
+"""Unit tests for the JSON API's simple, database-free endpoints."""
 
 from fastapi.testclient import TestClient
 
@@ -7,23 +7,24 @@ from app.main import app
 client = TestClient(app)
 
 
-def test_index_serves_hello_page() -> None:
-    response = client.get("/")
+def test_greeting_returns_message() -> None:
+    response = client.get("/api/greeting", params={"name": "Ada"})
     assert response.status_code == 200
-    assert "Hello World" in response.text
-    assert "/static/app.css" in response.text
-    assert "/static/htmx.min.js" in response.text
+    assert response.json() == {"message": "Hello, Ada!"}
 
 
-def test_greet_returns_greeting_fragment() -> None:
-    response = client.post("/greet", data={"name": "Ada"})
+def test_greeting_defaults_to_world_when_blank() -> None:
+    response = client.get("/api/greeting", params={"name": "   "})
     assert response.status_code == 200
-    assert "Hello, Ada!" in response.text
-    # A fragment for htmx to swap in, not a full document.
-    assert "<html" not in response.text.lower()
+    assert response.json() == {"message": "Hello, world!"}
 
 
-def test_greet_defaults_to_world_when_blank() -> None:
-    response = client.post("/greet", data={"name": "   "})
+def test_openapi_schema_exposes_the_api() -> None:
+    # The frontend's typed client is generated from this schema, so keep it
+    # reachable and shaped the way the generator (and check.sh's drift guard)
+    # expect: every /api route present under conventional paths.
+    response = client.get("/openapi.json")
     assert response.status_code == 200
-    assert "Hello, world!" in response.text
+    paths = response.json()["paths"]
+    for path in ("/api/auth/login", "/api/auth/register", "/api/users/me"):
+        assert path in paths

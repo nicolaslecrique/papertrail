@@ -70,7 +70,3 @@ async def get_user_manager(
 # is exercised end to end by the tests; suppress the spurious argument-type error.
 # pyrefly: ignore[bad-argument-type]
 fastapi_users = FastAPIUsers[User, uuid.UUID](get_user_manager, [auth_backend])
-
-# Optional dependency: resolves to the logged-in user or ``None`` (for HTML
-# pages that redirect rather than return a 401).
-current_optional_user = fastapi_users.current_user(active=True, optional=True)

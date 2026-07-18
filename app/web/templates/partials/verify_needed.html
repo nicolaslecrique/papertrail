@@ -1,9 +1,0 @@
-{% from "components/ui.html" import alert %}
-{{ alert('warning', 'Please confirm your email address before signing in.') }}
-<form hx-post="/resend-verification"
-      hx-target="#form-msg"
-      hx-swap="innerHTML"
-      class="mt-2">
-    <input type="hidden" name="email" value="{{ email }}" />
-    <button type="submit" class="btn btn-sm btn-ghost">Resend confirmation email</button>
-</form>

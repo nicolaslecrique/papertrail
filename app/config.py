@@ -30,8 +30,10 @@ class Settings(BaseSettings):
     cookie_secure: bool = False
     cookie_samesite: Literal["lax", "strict", "none"] = "lax"
 
-    # Public base URL used to build the verification / reset links in emails.
-    base_url: str = "http://localhost:8000"
+    # Public base URL used to build the verification / reset links in emails. These
+    # links are opened in the browser, so this points at the *frontend* origin (the
+    # TanStack Start server), whose /verify and /reset-password routes call the API.
+    base_url: str = "http://localhost:3000"
 
     # Breach check at sign-up. When True, the chosen password is checked against
     # Have I Been Pwned's k-Anonymity range API and rejected if it appears in a

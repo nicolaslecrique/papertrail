@@ -1,0 +1,13 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["src/router.tsx", "src/routes/**/*.tsx", "src/lib/api-config.ts"],
+  "project": ["src/**/*.{ts,tsx}"],
+  "ignore": ["src/client/**", "src/components/ui/**"],
+  "ignoreDependencies": [
+    "@tanstack/router-plugin",
+    "clsx",
+    "tailwind-merge",
+    "lucide-react",
+    "tw-animate-css"
+  ]
+}

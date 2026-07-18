@@ -1,5 +1,0 @@
-# @parcel/watcher is an optional native binary Tailwind's lightningcss uses
-# only for `--watch` mode, which the build script here never invokes -
-# disallow its install script so pnpm never prompts for approval.
-allowBuilds:
-  "@parcel/watcher": false

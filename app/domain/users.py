@@ -92,6 +92,24 @@ class UserManager(UUIDIDMixin, BaseUserManager[User, uuid.UUID]):
 
     @override
     # pyrefly: ignore[bad-override]
+    async def on_after_register(
+        self,
+        user: User,
+        request: Request | None = None,
+    ) -> None:
+        """Kick off email verification as soon as a new account is created.
+
+        Registration is only complete once the address is confirmed, so the
+        confirmation link is requested here (in the domain) rather than by the
+        HTTP route — keeping the ``POST /api/auth/register`` handler a thin
+        translation layer. ``request_verify`` issues the token and fans out to
+        ``on_after_request_verify`` below, which sends the mail.
+        """
+        # pyrefly: ignore[bad-argument-type]  (User vs fastapi-users' unresolved UP)
+        await self.request_verify(user, request)
+
+    @override
+    # pyrefly: ignore[bad-override]
     async def on_after_request_verify(
         self,
         user: User,

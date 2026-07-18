@@ -8,11 +8,9 @@ step-debugging) works out of the box. The Python side keeps only unit and
 integration tests (httpx against the ASGI app); nothing in `tests/` drives a
 browser anymore.
 
-`e2e/` is deliberately outside the repo-root pnpm project: it has its own
-`pnpm-workspace.yaml`, so `pnpm install` there resolves `e2e/package.json`
-instead of being captured by the frontend build's workspace, and its lockfile
-never touches the CSS `assets.sha256` fingerprint (see "Frontend assets are
-vendored").
+`e2e/` is deliberately its own pnpm project (own `pnpm-workspace.yaml`), separate
+from the `frontend/` app so its lockfile and dev tooling stay independent of the
+app's.
 
 ## Running
 
@@ -37,29 +35,23 @@ Or just open the **Testing** panel in VS Code: the extension discovers
 `check.sh` runs the same thing in its last step — `pnpm install --frozen-lockfile`
 then `pnpm exec playwright test` — so a green local run means a green gate.
 
-This project also hosts two template-quality tools, so all the JS tooling shares
-one install that stays off the CSS fingerprint (above):
-
-- **axe-core** (`@axe-core/playwright`) — `tests/accessibility.spec.ts` runs it
-  over every rendered page and fails on broken/dead markup (dangling labels,
-  duplicate ids, bad ARIA) or WCAG A/AA violations. Just another spec, so it runs
-  with `pnpm exec playwright test`.
-- **jscpd** — copy-paste detector over `app/web/templates` (config
-  `e2e/.jscpd.json`), run in its own `check.sh` step via `pnpm exec jscpd`. It
-  keeps shared markup in `templates/components/` macros rather than pasted between
-  pages.
+**axe-core** (`@axe-core/playwright`) — `tests/accessibility.spec.ts` runs it over
+every rendered page and fails on broken markup (dangling labels, duplicate ids,
+bad ARIA) or WCAG A/AA violations. It's just another spec, so it runs with
+`pnpm exec playwright test`.
 
 ## How it wires up
 
 `playwright.config.ts` owns the whole lifecycle; no external services need to be
 started by hand:
 
-- **`webServer`** boots the real app with
-  `uv run uvicorn app.main:app` on a fixed port, pointed at a dedicated
-  `papertrail_test` database (`support/config.ts` sets `DATABASE_URL` /
-  `AUTH_SECRET` / `EMAIL_BACKEND`). Playwright waits for `/` — which renders
-  without touching the database — before starting, so readiness never races the
-  schema. The server is torn down when the run ends.
+- **`webServer`** boots **both tiers** (`support/config.ts` holds the ports and
+  env): FastAPI via `uv run uvicorn app.main:app`, and the frontend via
+  `pnpm exec vite dev` in `frontend/` with `API_PROXY_TARGET` pointed at the test
+  API so `/api` is proxied there. Both are pointed at a dedicated `papertrail_test`
+  database / throwaway `AUTH_SECRET`, log emails to the console, and skip the
+  network breach check. Tests drive the **frontend origin** (`baseURL`); both
+  servers are torn down when the run ends.
 - **`globalSetup`** (`support/global-setup.ts`) shells out to
   `uv run python scripts/e2e_seed.py`, which creates the test database + schema
   and seeds one active, **verified** user. The seeder reuses the app's own
@@ -77,21 +69,25 @@ started by hand:
 ## Writing a test
 
 Specs live in `e2e/tests/*.spec.ts`. Prefer user-facing, role/label selectors
-(they match the daisyUI templates and survive markup changes):
+(they match the accessible React UI and survive markup changes):
 
 ```ts
 import { expect, test } from "@playwright/test";
 
-test("greeting swaps in via htmx", async ({ page }) => {
+test("home greeting updates from the API", async ({ page }) => {
   await page.goto("/");                                    // baseURL is preset
-  await page.getByLabel("Your name").fill("Ada");          // <label for> / aria-label
-  await page.getByRole("button", { name: "Greet me" }).click();
-  await expect(page.getByText("Hello, Ada!")).toBeVisible();
+  await expect(page.getByTestId("greeting")).toHaveText("Hello, world!"); // hydrated
+  await page.getByLabel("Your name").fill("Ada");
+  await expect(page.getByTestId("greeting")).toHaveText("Hello, Ada!");
 });
 ```
 
-For a test that needs an authenticated session, log in with the seeded account
-from `support/credentials.ts` (see `tests/auth.spec.ts`) — the user is already
-verified, so no email-confirmation step is needed. `getByRole` / `getByLabel` /
-`getByText` mirror the Python `expect(...)` calls the old suite used, so porting
-a flow is mostly mechanical.
+Two things to know about the React UI:
+
+- **Hydration.** The auth screens are client-rendered (`ssr: false`), so
+  `getByLabel(...)` naturally waits for them to render before interacting. On the
+  server-rendered home page, wait for a client-driven change (e.g. the greeting
+  text) before typing, so the input's handlers are wired up.
+- **Auth.** For a test that needs a session, log in with the seeded account from
+  `support/credentials.ts` (see `tests/auth.spec.ts`) — the user is already
+  verified, so no email-confirmation step is needed.

@@ -5,6 +5,14 @@
   "workspaceFolder": "/workspace",
   "remoteUser": "vscode",
 
+  // The backend API (uvicorn) and the frontend dev server (TanStack Start / Vite,
+  // which proxies /api to the backend). VS Code auto-forwards both to the host.
+  "forwardPorts": [8000, 3000],
+  "portsAttributes": {
+    "8000": { "label": "backend (FastAPI)" },
+    "3000": { "label": "frontend (TanStack Start)" }
+  },
+
   "features": {
     "ghcr.io/devcontainers/features/node:1": {},
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
@@ -38,7 +46,9 @@
         "charliermarsh.ruff",
         "meta.pyrefly",
         "ms-playwright.playwright",
-        "samuelcolvin.jinjahtml",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "bradlc.vscode-tailwindcss",
         "ms-ossdata.vscode-pgsql"
       ],
       "settings": {

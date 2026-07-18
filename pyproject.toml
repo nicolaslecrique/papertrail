@@ -7,7 +7,6 @@ requires-python = ">=3.12"
 dependencies = [
     "fastapi",
     "uvicorn[standard]",
-    "jinja2",
     "python-multipart",
     "fastapi-users[sqlalchemy]>=15.0.5",
     "fastapi-users-db-sqlalchemy>=7.0.0",
@@ -26,7 +25,6 @@ dev = [
     "pytest",
     "pyrefly",
     "ruff",
-    "djlint>=1.40.3",
     "pytest-cov>=7.1.0",
     "deptry>=0.25.1",
     "import-linter>=2.13",
@@ -69,20 +67,6 @@ project-includes = ["app", "tests"]
 # shared helpers from conftest as a top-level `conftest` module. Mirror that here
 # so the type checker resolves it the same way pytest does at runtime.
 search-path = ["tests"]
-
-[tool.djlint]
-# Formatter + linter for the Jinja + HTML templates under app/web/templates.
-# `--check` owns template formatting (like ruff format owns Python); `--lint`
-# catches well-formedness problems (unclosed/mismatched tags, bad nesting).
-# Run `uv run djlint app/web/templates --reformat` to apply formatting.
-profile = "jinja"
-# Silenced rules (not relevant to this app):
-#   H030/H031 - SEO <meta> description/keywords; this is an internal tool.
-#   J004      - wants Flask/Django url_for('static'); FastAPI serves /static
-#               directly, so the literal href is correct here.
-#   J018      - same as J004 but for internal links (e.g. <a href="/login">):
-#               FastAPI routes live at literal paths, so url_for is not used.
-ignore = "H030,H031,J004,J018"
 
 [tool.ruff]
 target-version = "py312"
@@ -137,7 +121,7 @@ DEP002 = ["uvicorn", "python-multipart", "asyncpg"]
 
 # ---------------------------------------------------------------------------
 # import-linter — architecture contracts. Enforces the layered design:
-#   web (FastAPI/htmx)  →  domain (pure Python)  →  db (Postgres/SQLAlchemy)
+#   web (FastAPI REST API)  →  domain (pure Python)  →  db (Postgres/SQLAlchemy)
 # The web layer calls the domain; the domain calls the db. The web must never
 # reach the db directly, and lower layers never import higher ones. The domain
 # stays free of any framework so its logic is testable in isolation.
@@ -167,7 +151,7 @@ allow_indirect_imports = "true"
 name = "Domain layer is pure Python (no web framework, no direct persistence)"
 type = "forbidden"
 source_modules = ["app.domain"]
-forbidden_modules = ["fastapi", "starlette", "jinja2", "sqlalchemy"]
+forbidden_modules = ["fastapi", "starlette", "sqlalchemy"]
 # Ban only *direct* framework imports in the domain. Reaching SQLAlchemy
 # indirectly via app.db (domain → db → sqlalchemy) is the whole point of the db
 # layer and must remain allowed.
@@ -177,4 +161,4 @@ allow_indirect_imports = "true"
 name = "Database layer is independent of the web layer"
 type = "forbidden"
 source_modules = ["app.db"]
-forbidden_modules = ["fastapi", "starlette", "jinja2"]
+forbidden_modules = ["fastapi", "starlette"]

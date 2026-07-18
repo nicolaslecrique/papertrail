@@ -1,9 +1,14 @@
 import { expect, test } from "@playwright/test";
 
-test("greeting swaps in via htmx", async ({ page }) => {
+test("home greeting updates from the API as you type", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "Hello World" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "papertrail" }),
+  ).toBeVisible();
+  // The greeting is fetched from GET /api/greeting through the generated client.
+  // Wait for the initial fetch to resolve (which also means the page has
+  // hydrated) before typing, so the input's onChange is wired up.
+  await expect(page.getByTestId("greeting")).toHaveText("Hello, world!");
   await page.getByLabel("Your name").fill("Ada");
-  await page.getByRole("button", { name: "Greet me" }).click();
-  await expect(page.getByText("Hello, Ada!")).toBeVisible();
+  await expect(page.getByTestId("greeting")).toHaveText("Hello, Ada!");
 });

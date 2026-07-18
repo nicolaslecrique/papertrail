@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 import { defineConfig, devices } from "@playwright/test";
 
-import { BASE_URL, PORT, SERVER_ENV } from "./support/config";
+import { API_PORT, API_URL, BASE_URL, SERVER_ENV, WEB_PORT } from "./support/config";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -24,16 +24,30 @@ export default defineConfig({
   ],
   // Seed the verified user (via the app's own UserManager) before any test runs.
   globalSetup: "./support/global-setup",
-  // Boot the real FastAPI app against the test database. The `/` page renders
-  // without touching the database, so the readiness check never races the schema.
-  webServer: {
-    command: `uv run uvicorn app.main:app --host 127.0.0.1 --port ${PORT}`,
-    cwd: repoRoot,
-    url: `${BASE_URL}/`,
-    reuseExistingServer: false,
-    timeout: 60_000,
-    stdout: "pipe",
-    stderr: "pipe",
-    env: { ...process.env, ...SERVER_ENV },
-  },
+  // Boot both tiers: the FastAPI JSON API against the test database, and the
+  // TanStack Start frontend (which proxies /api to that API via API_PROXY_TARGET).
+  // Tests hit the frontend origin (BASE_URL).
+  webServer: [
+    {
+      command: `uv run uvicorn app.main:app --host 127.0.0.1 --port ${API_PORT}`,
+      cwd: repoRoot,
+      url: `${API_URL}/openapi.json`,
+      reuseExistingServer: false,
+      timeout: 60_000,
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env, ...SERVER_ENV },
+    },
+    {
+      // --host 127.0.0.1 so it binds IPv4 (matches the URL Playwright waits on).
+      command: `pnpm exec vite dev --host 127.0.0.1 --port ${WEB_PORT}`,
+      cwd: resolve(repoRoot, "frontend"),
+      url: BASE_URL,
+      reuseExistingServer: false,
+      timeout: 120_000,
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env, API_PROXY_TARGET: API_URL },
+    },
+  ],
 });
