@@ -4,12 +4,14 @@ React 19 + TanStack Start (SSR) app that consumes the FastAPI backend through a
 generated, typed client. Styled with Tailwind CSS v4 + shadcn/ui; server state via
 TanStack Query. Package manager: **pnpm**.
 
+Run it from the repo root with the `just` command runner (see AGENTS.md):
+
 ```bash
-pnpm install
-pnpm dev            # http://localhost:3000, proxies /api to http://127.0.0.1:8000
+just frontend       # http://localhost:3000, proxies /api to http://127.0.0.1:8000
 ```
 
-Run the backend separately (`uv run uvicorn app.main:app --reload --port 8000`).
+Run the backend separately with `just backend`, or both at once with `just dev`.
+Raw pnpm scripts still work from this directory (`pnpm install`, `pnpm dev`).
 
 See [../docs/frontend.md](../docs/frontend.md) for the architecture (same-origin
 `/api` proxy, selective SSR, auth), the generated API client + drift guard, how

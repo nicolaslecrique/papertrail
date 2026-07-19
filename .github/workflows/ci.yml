@@ -1,9 +1,10 @@
 name: CI
 
-# Runs the same gate as local dev — scripts/check.sh — on every push. The script
-# is authoritative; this workflow just reproduces the environment it assumes
-# (Postgres, uv, gitleaks, Node/pnpm, and Playwright's Chromium). Tool versions
-# are pinned to match .devcontainer/Dockerfile; keep them in lockstep.
+# Runs the same gate as local dev — `just check`, which runs scripts/check.sh — on
+# every push. The script is authoritative; this workflow just reproduces the
+# environment it assumes (Postgres, uv, gitleaks, just, Node/pnpm, and Playwright's
+# Chromium). Tool versions are pinned to match .devcontainer/Dockerfile; keep them
+# in lockstep.
 on:
   push:
   workflow_dispatch:
@@ -56,6 +57,12 @@ jobs:
           docker rm "$cid"
           gitleaks version
 
+      - name: Install just (same pinned version as the devcontainer)
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh \
+            | sudo bash -s -- --tag 1.57.0 --to /usr/local/bin
+          just --version
+
       - name: Install Playwright's Chromium
         working-directory: e2e
         run: |
@@ -63,4 +70,4 @@ jobs:
           pnpm exec playwright install --with-deps chromium
 
       - name: Run the quality gate
-        run: bash scripts/check.sh
+        run: just check

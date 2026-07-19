@@ -15,10 +15,12 @@ app's.
 ## Running
 
 ```bash
-cd e2e
-pnpm install                 # first time only; the pnpm store caches it after
-pnpm exec playwright test    # or: pnpm test
+just test-e2e    # runs the Playwright suite (deps installed by `just install`)
 ```
+
+`just test-e2e` runs `pnpm exec playwright test` in `e2e/`. To drive Playwright
+directly for the variants below, `cd e2e` first (`just install` handles the initial
+`pnpm install`).
 
 Useful variants (all from `e2e/`):
 
@@ -32,8 +34,9 @@ pnpm exec tsc --noEmit              # type-check the specs (also: pnpm typecheck
 Or just open the **Testing** panel in VS Code: the extension discovers
 `e2e/playwright.config.ts` and lets you run or debug individual tests inline.
 
-`check.sh` runs the same thing in its last step — `pnpm install --frozen-lockfile`
-then `pnpm exec playwright test` — so a green local run means a green gate.
+The gate (`just check`) runs the same thing in its last step —
+`pnpm install --frozen-lockfile` then `pnpm exec playwright test` — so a green local
+run means a green gate.
 
 **axe-core** (`@axe-core/playwright`) — `tests/accessibility.spec.ts` runs it over
 every rendered page and fails on broken markup (dangling labels, duplicate ids,

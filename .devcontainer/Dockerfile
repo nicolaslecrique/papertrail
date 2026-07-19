@@ -9,6 +9,13 @@ ENV UV_LINK_MODE=copy
 # trick as uv above, no curl/pip step, fully reproducible via the version pin.
 COPY --from=zricethezav/gitleaks:v8.30.1 /usr/bin/gitleaks /usr/local/bin/gitleaks
 
+# just (the command runner - see /workspace/justfile, the central entrypoint for
+# common commands). No static-copy image upstream, so fetch the pinned prebuilt
+# binary from the official installer. Keep this pin in lockstep with the "Install
+# just" step in .github/workflows/ci.yml.
+RUN curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh \
+    | bash -s -- --tag 1.57.0 --to /usr/local/bin
+
 # Bake Playwright's Chromium + its OS libraries into the image so the
 # devcontainer starts fast (no ~150MB browser download) and the e2e tests run
 # offline. Browsers install to PLAYWRIGHT_BROWSERS_PATH, which lives outside the

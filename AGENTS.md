@@ -18,32 +18,57 @@ straight into `main` and push. Keep commits focused and descriptive.
 Before you consider **any** change complete, run:
 
 ```bash
-./scripts/check.sh
+just check
 ```
 
-It must exit 0. It runs, in order: the **Python backend** gate (secret scan,
-dependency audit, `ruff` format + lint, `pyrefly` strict types, `deptry`,
-`import-linter`, the pytest suite, `alembic check`), then the **frontend** gate
-(API-client drift guard, Prettier, ESLint, `tsc`, Knip, dependency-cruiser, the
-production build), then the **Playwright e2e** suite (which boots both tiers). The
-script is the source of truth for the exact steps — read it, or see
+It must exit 0. `just check` runs `scripts/check.sh`, which does, in order: the
+**Python backend** gate (secret scan, dependency audit, `ruff` format + lint,
+`pyrefly` strict types, `deptry`, `import-linter`, the pytest suite,
+`alembic check`), then the **frontend** gate (API-client drift guard, Prettier,
+ESLint, `tsc`, Knip, dependency-cruiser, the production build), then the
+**Playwright e2e** suite (which boots both tiers). The script is the source of
+truth for the exact steps — read it, or see
 [docs/quality-gate.md](docs/quality-gate.md) for what each tier is for.
 
 If it fails, fix the code (or the test) until it passes. Do not weaken the linter,
 the type checker, or delete tests to make it pass. New behavior needs new tests.
 
-`check.sh` won't rewrite your source: apart from regenerating a few committed
+`just check` won't rewrite your source: apart from regenerating a few committed
 artifacts in place to verify they're current (`openapi.json`, the generated client,
 the route tree), it makes no edits. To apply the fixes that *can* be applied
 mechanically (`ruff check --fix`, `ruff format`, `prettier --write`, `eslint --fix`),
-run the opt-in companion `./scripts/fix.sh`, review the diff, then re-run `check.sh`.
+run the opt-in companion `just fix`, review the diff, then re-run `just check`.
 The rest of the gate has no safe auto-fix and stays check-only.
 
-**CI.** `.github/workflows/ci.yml` runs this same `check.sh` on every push. It has
-no devcontainer, so it reproduces the environment the gate assumes — a Postgres
-service (reached via `TEST_DATABASE_URL`), plus `uv`, `gitleaks`, Node/pnpm, and
-Playwright's Chromium. Those tool versions are pinned to match
+**CI.** `.github/workflows/ci.yml` runs this same gate (`just check`) on every push.
+It has no devcontainer, so it reproduces the environment the gate assumes — a
+Postgres service (reached via `TEST_DATABASE_URL`), plus `just`, `uv`, `gitleaks`,
+Node/pnpm, and Playwright's Chromium. Those tool versions are pinned to match
 `.devcontainer/Dockerfile`; if you bump a version there, bump it in the workflow too.
+
+## Command runner: `just`
+
+The common commands live in one place — the [`justfile`](justfile) at the repo
+root, run with [`just`](https://just.systems) (a Makefile-like task runner, baked
+into the devcontainer image). It's the central, discoverable entrypoint; prefer it
+over remembering the raw `uv`/`pnpm`/`alembic` invocations. Run `just` (or
+`just --list`) to see every recipe. The recipes are thin wrappers — they delegate
+to `scripts/check.sh`, `scripts/fix.sh`, `uv`, `pnpm`, and `alembic`, which stay the
+source of truth.
+
+```bash
+just                 # list all recipes
+just install         # install backend (uv) + frontend & e2e (pnpm) deps
+just check           # the full quality gate (runs scripts/check.sh)
+just fix             # apply the mechanical auto-fixes, then re-run just check
+just backend         # run the API on :8000 (auto-reload)
+just frontend        # run the frontend dev server on :3000
+just dev             # run backend + frontend together (Ctrl-C stops both)
+just test            # backend pytest;  just test-e2e  runs the Playwright suite
+just build           # build the frontend SSR bundle
+just migrate         # apply DB migrations;  just migration "msg"  autogenerates one
+just gen-client      # regenerate openapi.json + the typed frontend client
+```
 
 ## Tech stack
 
@@ -79,11 +104,12 @@ frontend/       React / TanStack Start SPA+SSR app — see docs/frontend.md
   src/client/     generated, typed API client (owned by @hey-api/openapi-ts)
   src/components/ui/  vendored shadcn/ui components (updated from the shadcn reference)
 openapi.json    committed OpenAPI schema the client is generated from
+justfile        `just` recipes — the central entrypoint for common commands
 tests/          Python unit + integration tests (+ conftest DB/client fixtures)
 e2e/            self-contained TypeScript Playwright project — see docs/e2e-tests.md
 migrations/     Alembic migration environment + committed revisions
 scripts/        check.sh (the gate), fix.sh, export-openapi.py, e2e seeder
-.devcontainer/  image (uv + Node/pnpm + Chromium) + compose (app + Postgres)
+.devcontainer/  image (uv + just + Node/pnpm + Chromium) + compose (app + Postgres)
 docs/           extra docs (quality gate, migrations, frontend, e2e, security, ...)
 ```
 
@@ -119,26 +145,17 @@ gate fails if they drift.
 
 ## Common tasks
 
-Run the backend API (VS Code forwards the port):
+All wrapped by `just` (see "Command runner: `just`" above; `just --list` for the
+full set). The main ones:
 
 ```bash
-uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+just backend    # run the API on :8000 (VS Code forwards the port)
+just frontend   # run the frontend dev server on :3000 (proxies /api to the backend)
+just dev        # run both together (Ctrl-C stops both)
+just test-e2e   # browser e2e tests, boots both tiers itself (see docs/e2e-tests.md)
 ```
 
-Run the frontend dev server (proxies `/api` to the backend above):
-
-```bash
-cd frontend && pnpm install && pnpm dev   # http://localhost:3000
-```
-
-Run the browser e2e tests (boots both tiers itself — see
-[docs/e2e-tests.md](docs/e2e-tests.md)):
-
-```bash
-cd e2e && pnpm install && pnpm exec playwright test
-```
-
-Add dependencies:
+Add dependencies (no recipe — run the package manager directly):
 
 ```bash
 uv add <pkg>                    # backend runtime dependency
@@ -150,9 +167,10 @@ cd frontend && pnpm add <pkg>   # frontend dependency
 
 The schema is managed by **Alembic** (async), not `metadata.create_all`. When you
 change the schema, edit the ORM models in [app/db/models.py](app/db/models.py),
-autogenerate a migration, review it, and **commit it alongside the model change**
-— `check.sh`'s `alembic check` fails if the models drift ahead of the migrations.
-See [docs/migrations.md](docs/migrations.md) for the commands and details.
+autogenerate a migration with `just migration "describe the change"`, review it,
+and **commit it alongside the model change** — the gate's `alembic check` fails if
+the models drift ahead of the migrations. Apply pending migrations with
+`just migrate`. See [docs/migrations.md](docs/migrations.md) for details.
 
 ## Coverage
 

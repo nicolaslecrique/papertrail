@@ -1,9 +1,9 @@
 # Security checks
 
 - **Secrets:** `gitleaks git` scans the full git history (not just the working tree)
-  on every `check.sh` run, so a secret is caught even if it's later removed from
+  on every `just check` run, so a secret is caught even if it's later removed from
   HEAD. The binary is baked into the devcontainer image (`.devcontainer/Dockerfile`,
-  same pinned-static-binary pattern as `uv`) — if `check.sh` reports gitleaks
+  same pinned-static-binary pattern as `uv`) — if the gate reports gitleaks
   missing, rebuild the devcontainer. If it ever flags a genuine false positive
   (e.g. a low-entropy dev-only placeholder), add a `.gitleaks.toml` allowlist
   entry with a comment explaining why — do not skip the step. If it flags a real

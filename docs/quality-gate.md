@@ -1,16 +1,18 @@
 # The quality gate: `scripts/check.sh`
 
 `scripts/check.sh` is the single source of truth for whether a change is ready.
-Run it before considering **any** change complete; it must exit 0. **The script
-itself is authoritative** — it self-documents via its `echo "==> …"` lines, so read
-it for the exact steps and order. This page explains what each tier is _for_ and
-why, not a step-by-step transcript (which would just drift from the script).
+Run it via `just check` before considering **any** change complete; it must exit 0.
+**The script itself is authoritative** — it self-documents via its `echo "==> …"`
+lines, so read it for the exact steps and order. This page explains what each tier
+is _for_ and why, not a step-by-step transcript (which would just drift from the
+script).
 
-`check.sh` won't rewrite your source. It regenerates a few committed artifacts in
+`just check` won't rewrite your source. It regenerates a few committed artifacts in
 place (`openapi.json`, `frontend/src/client`, `routeTree.gen.ts`) to verify they're
-current, but applies no lint/format fixes. Its opt-in companion `scripts/fix.sh`
-does that (`ruff check --fix`, `ruff format`, Prettier, `eslint --fix`) — run it,
-review the diff, then re-run `check.sh`. The rest of the gate has no safe auto-fix.
+current, but applies no lint/format fixes. Its opt-in companion `just fix`
+(`scripts/fix.sh`) does that (`ruff check --fix`, `ruff format`, Prettier,
+`eslint --fix`) — run it, review the diff, then re-run `just check`. The rest of
+the gate has no safe auto-fix.
 
 ## What each tier checks, and why
 

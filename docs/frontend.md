@@ -29,12 +29,12 @@ Browser ─▶ TanStack Start (Nitro) server ─serves─▶ React app
 ## Run it
 
 ```bash
-cd frontend
-pnpm install
-pnpm dev            # http://localhost:3000, proxies /api to http://127.0.0.1:8000
+just frontend       # http://localhost:3000, proxies /api to http://127.0.0.1:8000
 ```
 
-Run the backend separately (`uv run uvicorn app.main:app --reload --port 8000`).
+Run the backend separately with `just backend`, or both at once with `just dev`
+(see the "Command runner: `just`" section in AGENTS.md). First-time setup:
+`just install`.
 
 ## The generated API client (@hey-api/openapi-ts)
 
@@ -47,11 +47,12 @@ When you change a backend route or Pydantic model, regenerate both the schema an
 the client, then commit them:
 
 ```bash
-uv run python scripts/export-openapi.py      # backend → openapi.json
-cd frontend && pnpm gen:api                  # openapi.json → src/client/
+just gen-client   # export openapi.json, then regenerate src/client/
 ```
 
-`check.sh` re-runs exactly these and fails if the committed `openapi.json` /
+This wraps `PYTHONPATH=. uv run python scripts/export-openapi.py` (backend →
+`openapi.json`) and `pnpm gen:api` (`openapi.json` → `src/client/`). The gate
+(`just check`) re-runs exactly these and fails if the committed `openapi.json` /
 `src/client` are stale, so the generated client can never silently fall behind the
 backend. Cleaner client symbol names come from the backend's
 `generate_unique_id_function` (see `app/main.py`).
