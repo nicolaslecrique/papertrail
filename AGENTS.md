@@ -39,6 +39,12 @@ mechanically (`ruff check --fix`, `ruff format`, `prettier --write`, `eslint --f
 run the opt-in companion `./scripts/fix.sh`, review the diff, then re-run `check.sh`.
 The rest of the gate has no safe auto-fix and stays check-only.
 
+**CI.** `.github/workflows/ci.yml` runs this same `check.sh` on every push. It has
+no devcontainer, so it reproduces the environment the gate assumes — a Postgres
+service (reached via `TEST_DATABASE_URL`), plus `uv`, `gitleaks`, Node/pnpm, and
+Playwright's Chromium. Those tool versions are pinned to match
+`.devcontainer/Dockerfile`; if you bump a version there, bump it in the workflow too.
+
 ## Tech stack
 
 - **Language / deps:** Python, managed with `uv` (`pyproject.toml` + `uv.lock`)

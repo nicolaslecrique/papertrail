@@ -1,0 +1,66 @@
+name: CI
+
+# Runs the same gate as local dev — scripts/check.sh — on every push. The script
+# is authoritative; this workflow just reproduces the environment it assumes
+# (Postgres, uv, gitleaks, Node/pnpm, and Playwright's Chromium). Tool versions
+# are pinned to match .devcontainer/Dockerfile; keep them in lockstep.
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: papertrail
+          POSTGRES_PASSWORD: papertrail
+          POSTGRES_DB: papertrail
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U papertrail"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      # The gate honours TEST_DATABASE_URL for pytest, the alembic check, and the
+      # e2e servers; point them all at the Postgres service above (on localhost,
+      # since the job runs directly on the runner, not in a container).
+      TEST_DATABASE_URL: postgresql://papertrail:papertrail@localhost:5432/papertrail_test
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # gitleaks scans the full history
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.11.26"
+
+      - name: Install Node + pnpm
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.18.0"
+      - run: corepack enable
+
+      - name: Install gitleaks (same pinned image as the devcontainer)
+        run: |
+          cid=$(docker create zricethezav/gitleaks:v8.30.1)
+          sudo docker cp "$cid":/usr/bin/gitleaks /usr/local/bin/gitleaks
+          docker rm "$cid"
+          gitleaks version
+
+      - name: Install Playwright's Chromium
+        working-directory: e2e
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm exec playwright install --with-deps chromium
+
+      - name: Run the quality gate
+        run: bash scripts/check.sh
