@@ -130,7 +130,7 @@ DEP002 = ["uvicorn", "python-multipart", "asyncpg"]
 [tool.importlinter]
 root_package = "app"
 # Required so the "forbidden" contracts below can name external packages
-# (fastapi, jinja2, ...) as modules the domain/db layers must not import.
+# (fastapi, starlette, sqlalchemy) as modules the domain/db layers must not import.
 include_external_packages = true
 
 [[tool.importlinter.contracts]]

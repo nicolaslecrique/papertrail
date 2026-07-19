@@ -6,7 +6,7 @@ or evading a per-person limit. We refuse the known disposable domains at
 registration. The block list ships with the ``disposable-email-domains`` package
 as a plain in-memory set, so this is a pure local lookup: no network, fully
 deterministic in tests. The domain layer owns the rule; the web layer catches
-:class:`DisposableEmailError` and renders the message.
+:class:`DisposableEmailError` and returns the message as a JSON error.
 """
 
 from disposable_email_domains import blocklist

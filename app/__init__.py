@@ -1,1 +1,1 @@
-"""papertrail — a FastAPI + htmx + Jinja2 + daisyUI web application."""
+"""papertrail — a FastAPI JSON REST API with a separate React/TanStack frontend."""

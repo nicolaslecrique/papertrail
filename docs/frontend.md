@@ -51,9 +51,9 @@ uv run python scripts/export-openapi.py      # backend → openapi.json
 cd frontend && pnpm gen:api                  # openapi.json → src/client/
 ```
 
-`check.sh` re-runs exactly these and fails (via `git diff`) if the committed
-`openapi.json` / `src/client` are stale — the same idea as the old vendored-asset
-fingerprint. Cleaner client symbol names come from the backend's
+`check.sh` re-runs exactly these and fails if the committed `openapi.json` /
+`src/client` are stale, so the generated client can never silently fall behind the
+backend. Cleaner client symbol names come from the backend's
 `generate_unique_id_function` (see `app/main.py`).
 
 ## shadcn/ui is vendored

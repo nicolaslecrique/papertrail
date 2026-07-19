@@ -7,7 +7,12 @@ set -euo pipefail
 # tests, migrations), then the frontend gate (API-client drift, format, lint,
 # strict types, dead-code, architecture, build), then the TypeScript Playwright
 # e2e suite. Any agent or human MUST run this and make it pass before considering
-# a change complete. See AGENTS.md. It is read-only (never edits your files).
+# a change complete. See AGENTS.md.
+#
+# The gate regenerates a few committed artifacts in place (openapi.json,
+# frontend/src/client, routeTree.gen.ts) and verifies they're unchanged; apart
+# from those it makes no edits. It never applies lint/format fixes - run the
+# opt-in scripts/fix.sh for that.
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
@@ -22,6 +27,14 @@ echo "==> playwright version pin matches between Dockerfile and e2e/package.json
 # fail loudly here instead.
 DOCKERFILE_PLAYWRIGHT="$(grep -oE 'playwright==[0-9.]+' .devcontainer/Dockerfile | head -1 | cut -d= -f3)"
 E2E_PLAYWRIGHT="$(grep -oE '"@playwright/test": "[0-9.]+"' e2e/package.json | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')"
+# A format change that makes either grep match nothing would turn the comparison
+# into a silent "" == "" no-op, so fail loudly if a version couldn't be parsed.
+if [ -z "$DOCKERFILE_PLAYWRIGHT" ] || [ -z "$E2E_PLAYWRIGHT" ]; then
+  echo "error: could not parse the playwright version pin from" \
+       ".devcontainer/Dockerfile ('$DOCKERFILE_PLAYWRIGHT') or e2e/package.json" \
+       "('$E2E_PLAYWRIGHT') - the guard below can't run." >&2
+  exit 1
+fi
 if [ "$DOCKERFILE_PLAYWRIGHT" != "$E2E_PLAYWRIGHT" ]; then
   echo "error: .devcontainer/Dockerfile pins playwright==$DOCKERFILE_PLAYWRIGHT" \
        "but e2e/package.json pins @playwright/test==$E2E_PLAYWRIGHT" >&2
@@ -77,16 +90,18 @@ echo "==> frontend: pnpm install"
 echo "==> API client in sync with the backend OpenAPI"
 # The frontend's typed client is generated from the committed openapi.json. Export
 # the schema from the app and regenerate the client; if either drifts from what's
-# committed, the backend changed without the client being regenerated. This is the
-# frontend analogue of the old vendored-asset fingerprint guard.
+# committed, the backend changed without the client being regenerated.
 PYTHONPATH=. uv run python scripts/export-openapi.py
 (cd frontend && pnpm gen:api)
-if ! git diff --exit-code -- openapi.json frontend/src/client >/dev/null 2>&1; then
+# git status --porcelain (not `git diff`) so a brand-new generated file - e.g. the
+# client module for a newly added endpoint - is caught too, not just edits to
+# already-tracked files.
+if [ -n "$(git status --porcelain -- openapi.json frontend/src/client)" ]; then
   echo "error: openapi.json / frontend/src/client are stale - the backend API" >&2
   echo "       changed but the generated client was not regenerated." >&2
   echo "       Run: uv run python scripts/export-openapi.py && (cd frontend && pnpm gen:api)" >&2
   echo "       then commit openapi.json and frontend/src/client." >&2
-  git --no-pager diff --stat -- openapi.json frontend/src/client >&2 || true
+  git --no-pager status --porcelain -- openapi.json frontend/src/client >&2 || true
   exit 1
 fi
 

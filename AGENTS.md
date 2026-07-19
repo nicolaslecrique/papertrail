@@ -21,18 +21,20 @@ Before you consider **any** change complete, run:
 ./scripts/check.sh
 ```
 
-It must exit 0. It's a read-only gate that runs, in order: the **Python backend**
-gate (secret scan, dependency audit, `ruff` format + lint, `pyrefly` strict types,
-`deptry`, `import-linter`, the pytest suite, `alembic check`), then the **frontend**
-gate (API-client drift guard, Prettier, ESLint, `tsc`, Knip, dependency-cruiser,
-the production build), then the **Playwright e2e** suite (which boots both tiers).
-The script is the source of truth for the exact steps — read it, or see
-[docs/quality-gate.md](docs/quality-gate.md) for what each one does.
+It must exit 0. It runs, in order: the **Python backend** gate (secret scan,
+dependency audit, `ruff` format + lint, `pyrefly` strict types, `deptry`,
+`import-linter`, the pytest suite, `alembic check`), then the **frontend** gate
+(API-client drift guard, Prettier, ESLint, `tsc`, Knip, dependency-cruiser, the
+production build), then the **Playwright e2e** suite (which boots both tiers). The
+script is the source of truth for the exact steps — read it, or see
+[docs/quality-gate.md](docs/quality-gate.md) for what each tier is for.
 
 If it fails, fix the code (or the test) until it passes. Do not weaken the linter,
 the type checker, or delete tests to make it pass. New behavior needs new tests.
 
-`check.sh` never edits your files. To apply the fixes that *can* be applied
+`check.sh` won't rewrite your source: apart from regenerating a few committed
+artifacts in place to verify they're current (`openapi.json`, the generated client,
+the route tree), it makes no edits. To apply the fixes that *can* be applied
 mechanically (`ruff check --fix`, `ruff format`, `prettier --write`, `eslint --fix`),
 run the opt-in companion `./scripts/fix.sh`, review the diff, then re-run `check.sh`.
 The rest of the gate has no safe auto-fix and stays check-only.

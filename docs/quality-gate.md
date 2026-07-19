@@ -1,59 +1,43 @@
 # The quality gate: `scripts/check.sh`
 
 `scripts/check.sh` is the single source of truth for whether a change is ready.
-Run it before considering **any** change complete; it must exit 0. This page
-documents what each step does — but the script itself is authoritative, so if
-this list and the script ever disagree, believe the script (and fix this page).
+Run it before considering **any** change complete; it must exit 0. **The script
+itself is authoritative** — it self-documents via its `echo "==> …"` lines, so read
+it for the exact steps and order. This page explains what each tier is _for_ and
+why, not a step-by-step transcript (which would just drift from the script).
 
-`check.sh` is **read-only**: it reports, never edits. Its opt-in companion
-`scripts/fix.sh` applies the mechanical fixes — `ruff check --fix`, `ruff format`,
-Prettier, and `eslint --fix` — and nothing else, because the rest of the gate
-(types, tests, migrations, dependency and architecture checks, the API-client
-drift guard, ...) has no safe auto-fix. Run `fix.sh`, review the diff, then run
-`check.sh` to verify.
+`check.sh` won't rewrite your source. It regenerates a few committed artifacts in
+place (`openapi.json`, `frontend/src/client`, `routeTree.gen.ts`) to verify they're
+current, but applies no lint/format fixes. Its opt-in companion `scripts/fix.sh`
+does that (`ruff check --fix`, `ruff format`, Prettier, `eslint --fix`) — run it,
+review the diff, then re-run `check.sh`. The rest of the gate has no safe auto-fix.
 
-## The steps, in order
+## What each tier checks, and why
 
-Backend (Python):
+**Backend (Python).** Security first (gitleaks over full history, `uv audit` for
+known CVEs — see [security-checks.md](security-checks.md)), then `ruff format` +
+`ruff check` (lint, `select = ["ALL"]`), `pyrefly` (strict types), `deptry`
+(dependency hygiene), and `lint-imports` (the layered-architecture contracts — see
+"Architecture" in AGENTS.md). Then `pytest` (unit + integration through httpx, with
+a coverage report — see "Coverage" in AGENTS.md) and `alembic check`, which fails if
+`app/db/models.py` has drifted ahead of the committed migrations (see
+[migrations.md](migrations.md)).
 
-1. `uv sync` — dependencies match `pyproject.toml` / `uv.lock`
-2. playwright version check — the Dockerfile's baked-Chromium pin must match the
-   `@playwright/test` pin in `e2e/package.json` (see [e2e-tests.md](e2e-tests.md))
-3. `gitleaks git` — secret scanning over the full git history (see
-   [security-checks.md](security-checks.md))
-4. `uv audit` — known vulnerabilities in resolved dependencies (see
-   [security-checks.md](security-checks.md))
-5. `ruff format --check .` — Python formatting
-6. `ruff check .` — linting (`select = ["ALL"]`)
-7. `pyrefly check` — type checking (strict preset)
-8. `deptry .` — dependency hygiene (unused / missing / transitive / misplaced deps)
-9. `lint-imports` — architecture layering contracts (see "Architecture" in AGENTS.md)
-10. `pytest` — Python unit + integration tests (API driven through httpx), with a
-    coverage report (see "Coverage" in AGENTS.md)
-11. `alembic check` — the ORM models in `app/db/models.py` match the committed
-    migrations (see [migrations.md](migrations.md))
+**Frontend (`frontend/`, see [frontend.md](frontend.md)).** A frozen `pnpm install`,
+then the **API-client drift guard**: re-export `openapi.json` from the app,
+regenerate `frontend/src/client`, and fail if either differs from what's committed
+(so the generated client can never silently fall behind the backend). Then the route
+tree is generated so the rest can see it, followed by Prettier, ESLint (strict,
+type-checked), `tsc`, Knip (dead code), dependency-cruiser (architecture), and the
+production SSR build.
 
-Frontend (`frontend/`, see [frontend.md](frontend.md)):
+**End to end.** `playwright test` — the TypeScript browser suite in `e2e/` (see
+[e2e-tests.md](e2e-tests.md)), which boots both tiers and includes
+`accessibility.spec.ts` (axe-core, WCAG A/AA) over each rendered page.
 
-12. `pnpm install --frozen-lockfile` — install exactly the committed lockfile
-13. **API-client drift guard** — re-export `openapi.json` from the app and
-    regenerate `frontend/src/client`; fail (via `git diff`) if either is stale.
-    This is the analogue of the old vendored-asset fingerprint: the committed,
-    generated client must always match the backend.
-14. generate the route tree (`tsr generate`) so the next steps see it
-15. `prettier --check` — frontend formatting
-16. `eslint` (`--max-warnings 0`) — typescript-eslint strict + type-checked, plus
-    the TanStack Router/Query and Tailwind plugins
-17. `tsc --noEmit` — strict type checking
-18. `knip` — unused files / exports / dependencies
-19. `dependency-cruiser` — no circular deps, no orphans, vendored `ui/` isolation
-20. `pnpm build` — the TanStack Start SSR bundle compiles
-
-End to end:
-
-21. `playwright test` — TypeScript browser e2e in `e2e/` (see [e2e-tests.md](e2e-tests.md)),
-    which boots both tiers and includes `accessibility.spec.ts`, running axe-core
-    over each rendered page for WCAG A/AA violations
+There's also an early guard that the baked-Chromium `playwright==` pin in the
+Dockerfile matches the `@playwright/test` pin in `e2e/package.json` (see
+[e2e-tests.md](e2e-tests.md)).
 
 If it fails, fix the code (or the test) until it passes. Do not weaken the linter,
 the type checker, or delete tests to make it pass. New behavior needs new tests.

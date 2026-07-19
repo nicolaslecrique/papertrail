@@ -21,10 +21,15 @@ uv run ruff check --fix .
 echo "==> ruff format (backend Python formatting)"
 uv run ruff format .
 
+echo "==> frontend: install deps + generate route tree (eslint needs it present)"
+# check.sh runs gen:routes before eslint for the same reason; mirror it here so a
+# clean checkout (routeTree.gen.ts is gitignored) doesn't make eslint --fix trip.
+(cd frontend && pnpm install --frozen-lockfile && pnpm gen:routes)
+
 echo "==> frontend: prettier --write (formatting)"
-(cd frontend && pnpm install --frozen-lockfile && pnpm format)
+(cd frontend && pnpm format)
 
 echo "==> frontend: eslint --fix (lint autofixes)"
-(cd frontend && pnpm exec eslint . --fix)
+(cd frontend && pnpm lint:fix)
 
 echo "==> done. Review the diff, then run scripts/check.sh to verify ✅"
