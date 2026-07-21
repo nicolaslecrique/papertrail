@@ -34,11 +34,16 @@ RUN uvx --from playwright==1.61.0 playwright install --with-deps chromium \
 # package.json, reproducibly, with no separate npm-install-pnpm step.
 COPY --from=node:24.18.0-slim /usr/local/bin/node /usr/local/bin/node
 COPY --from=node:24.18.0-slim /usr/local/lib/node_modules /usr/local/lib/node_modules
-# /usr/local/bin/corepack in the node image is a symlink into the node_modules
-# tree above; COPYing that symlink directly dereferences it into a standalone
-# file, which breaks corepack's own relative `require('./lib/corepack.cjs')`.
-# Recreate the symlink ourselves instead of copying it.
-RUN ln -s ../lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack
+# /usr/local/bin/{corepack,npm,npx} in the node image are symlinks into the
+# node_modules tree above; COPYing those symlinks directly dereferences them
+# into standalone files, which breaks their relative `require(...)` calls.
+# Recreate them ourselves instead of copying them. npm/npx matter beyond pnpm:
+# the claude-code devcontainer feature only installs its own Node if `node` or
+# `npm` is missing from PATH, so having both here lets it reuse this pinned
+# install instead of pulling in a second one via the node feature.
+RUN ln -s ../lib/node_modules/corepack/dist/corepack.js /usr/local/bin/corepack \
+    && ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+    && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 RUN corepack enable && corepack prepare pnpm@11.10.0 --activate
 
 WORKDIR /workspace

@@ -13,8 +13,12 @@
     "3000": { "label": "frontend (TanStack Start)" }
   },
 
+  // Node itself comes solely from the Dockerfile's pinned COPY (including the
+  // npm/npx symlinks it recreates) - not from a "node" feature. The
+  // claude-code feature below only installs its own Node if `node` or `npm`
+  // is missing from PATH, so it detects and reuses this pinned install
+  // instead of pulling in a second, unpinned one via nvm.
   "features": {
-    "ghcr.io/devcontainers/features/node:1": {},
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
   },
 
