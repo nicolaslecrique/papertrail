@@ -11,8 +11,8 @@ COPY --from=zricethezav/gitleaks:v8.30.1 /usr/bin/gitleaks /usr/local/bin/gitlea
 
 # just (the command runner - see /workspace/justfile, the central entrypoint for
 # common commands). No static-copy image upstream, so fetch the pinned prebuilt
-# binary from the official installer. Keep this pin in lockstep with the "Install
-# just" step in .github/workflows/ci.yml.
+# binary from the official installer. CI reuses this same image (see
+# .github/workflows/ci.yml), so this is the only place the version is pinned.
 RUN curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh \
     | bash -s -- --tag 1.57.0 --to /usr/local/bin
 

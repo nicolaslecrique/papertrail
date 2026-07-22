@@ -40,11 +40,15 @@ mechanically (`ruff check --fix`, `ruff format`, `prettier --write`, `eslint --f
 run the opt-in companion `just fix`, review the diff, then re-run `just check`.
 The rest of the gate has no safe auto-fix and stays check-only.
 
-**CI.** `.github/workflows/ci.yml` runs this same gate (`just check`) on every push.
-It has no devcontainer, so it reproduces the environment the gate assumes — a
-Postgres service (reached via `TEST_DATABASE_URL`), plus `just`, `uv`, `gitleaks`,
-Node/pnpm, and Playwright's Chromium. Those tool versions are pinned to match
-`.devcontainer/Dockerfile`; if you bump a version there, bump it in the workflow too.
+**CI.** `.github/workflows/ci.yml` runs this same gate (`just check`) on every push,
+using [`devcontainers/ci`](https://github.com/devcontainers/ci) to build and run it
+*inside* the actual devcontainer image (`.devcontainer/Dockerfile`, via the
+CI-only `.devcontainer/ci/devcontainer.json`) instead of reinstalling `uv`,
+`gitleaks`, `just`, Node/pnpm, and Playwright's Chromium by hand — so there's only
+one place those tool versions are pinned. Postgres comes up as the compose `db`
+service alongside the devcontainer, reached via `TEST_DATABASE_URL`. The built
+image is pushed to GHCR (`ghcr.io/nicolaslecrique/papertrail-devcontainer`) and
+reused as a build cache on later runs.
 
 ## Command runner: `just`
 

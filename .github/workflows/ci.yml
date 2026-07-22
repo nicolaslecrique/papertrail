@@ -1,73 +1,51 @@
 name: CI
 
-# Runs the same gate as local dev — `just check`, which runs scripts/check.sh — on
-# every push. The script is authoritative; this workflow just reproduces the
-# environment it assumes (Postgres, uv, gitleaks, just, Node/pnpm, and Playwright's
-# Chromium). Tool versions are pinned to match .devcontainer/Dockerfile; keep them
-# in lockstep.
+# Runs the same gate as local dev - `just check`, which runs scripts/check.sh -
+# on every push, inside the exact same devcontainer image used locally
+# (.devcontainer/Dockerfile, via the CI-only .devcontainer/ci/devcontainer.json -
+# see its comments for why it's a separate file from the dev one). Building the
+# image is what installs uv/gitleaks/just/Node-pnpm/Playwright's Chromium, so
+# there's no separate tool-install step here to keep in sync with the Dockerfile.
 on:
   push:
   workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write # push the built devcontainer image to GHCR for build-layer caching
 
 jobs:
   check:
     runs-on: ubuntu-latest
 
-    services:
-      db:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: papertrail
-          POSTGRES_PASSWORD: papertrail
-          POSTGRES_DB: papertrail
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U papertrail"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-
     env:
       # The gate honours TEST_DATABASE_URL for pytest, the alembic check, and the
-      # e2e servers; point them all at the Postgres service above (on localhost,
-      # since the job runs directly on the runner, not in a container).
-      TEST_DATABASE_URL: postgresql://papertrail:papertrail@localhost:5432/papertrail_test
+      # e2e servers. `just check` runs *inside* the devcontainer, on the compose
+      # network defined by docker-compose.yml, so Postgres is reachable at the
+      # `db` service hostname (started automatically alongside `app` - same as a
+      # local `docker compose up`), not localhost.
+      TEST_DATABASE_URL: postgresql://papertrail:papertrail@db:5432/papertrail_test
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0 # gitleaks scans the full history
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
+      - name: Log in to GHCR (for devcontainer image caching)
+        uses: docker/login-action@v3
         with:
-          version: "0.11.26"
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Install Node + pnpm
-        uses: actions/setup-node@v4
+      - name: Build the devcontainer and run the quality gate
+        uses: devcontainers/ci@v0.3
         with:
-          node-version: "24.18.0"
-      - run: corepack enable
-
-      - name: Install gitleaks (same pinned image as the devcontainer)
-        run: |
-          cid=$(docker create zricethezav/gitleaks:v8.30.1)
-          sudo docker cp "$cid":/usr/bin/gitleaks /usr/local/bin/gitleaks
-          docker rm "$cid"
-          gitleaks version
-
-      - name: Install just (same pinned version as the devcontainer)
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://just.systems/install.sh \
-            | sudo bash -s -- --tag 1.57.0 --to /usr/local/bin
-          just --version
-
-      - name: Install Playwright's Chromium
-        working-directory: e2e
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm exec playwright install --with-deps chromium
-
-      - name: Run the quality gate
-        run: just check
+          configFile: .devcontainer/ci/devcontainer.json
+          imageName: ghcr.io/nicolaslecrique/papertrail-devcontainer
+          cacheFrom: ghcr.io/nicolaslecrique/papertrail-devcontainer
+          push: filter
+          refFilterForPush: refs/heads/main
+          env: |
+            TEST_DATABASE_URL
+          runCmd: just check

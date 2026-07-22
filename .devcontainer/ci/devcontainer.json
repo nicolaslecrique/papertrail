@@ -1,0 +1,14 @@
+{
+  // CI-only variant of ../devcontainer.json, used by devcontainers/ci in
+  // .github/workflows/ci.yml. Reuses the same docker-compose.yml (and therefore
+  // the same Dockerfile) so the image is defined in exactly one place - only the
+  // dev-machine-only bits are dropped:
+  //   - "mounts": binds ${localEnv:HOME}/.claude(.json) from the host, which
+  //     doesn't exist on a GitHub Actions runner.
+  //   - "features" / "customizations": the claude-code feature and VS Code
+  //     settings, both meaningless for a headless CI run.
+  "name": "papertrail-ci",
+  "dockerComposeFile": ["../docker-compose.yml"],
+  "service": "app",
+  "workspaceFolder": "/workspace"
+}
