@@ -12,7 +12,7 @@ export const BASE_URL = `http://127.0.0.1:${WEB_PORT}`;
 
 // The test database. Defaults to the devcontainer's `db` service; CI overrides it
 // via TEST_DATABASE_URL to point at its own Postgres (same override the pytest
-// suite and check.sh already honour).
+// suite and `just check` already honour).
 const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ??
   "postgresql://papertrail:papertrail@db:5432/papertrail_test";

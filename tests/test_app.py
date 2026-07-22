@@ -21,7 +21,7 @@ def test_greeting_defaults_to_world_when_blank() -> None:
 
 def test_openapi_schema_exposes_the_api() -> None:
     # The frontend's typed client is generated from this schema, so keep it
-    # reachable and shaped the way the generator (and check.sh's drift guard)
+    # reachable and shaped the way the generator (and `just check`'s drift guard)
     # expect: every /api route present under conventional paths.
     response = client.get("/openapi.json")
     assert response.status_code == 200

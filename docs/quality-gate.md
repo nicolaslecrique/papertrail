@@ -1,16 +1,16 @@
-# The quality gate: `scripts/check.sh`
+# The quality gate: `just check`
 
-`scripts/check.sh` is the single source of truth for whether a change is ready.
-Run it via `just check` before considering **any** change complete; it must exit 0.
-**The script itself is authoritative** — it self-documents via its `echo "==> …"`
-lines, so read it for the exact steps and order. This page explains what each tier
-is _for_ and why, not a step-by-step transcript (which would just drift from the
-script).
+The `check` recipe in the [`justfile`](../justfile) is the single source of truth
+for whether a change is ready. Run it via `just check` before considering **any**
+change complete; it must exit 0. **The recipe itself is authoritative** — it
+self-documents via its `echo "==> …"` lines, so read it for the exact steps and
+order. This page explains what each tier is _for_ and why, not a step-by-step
+transcript (which would just drift from the recipe).
 
 `just check` won't rewrite your source. It regenerates a few committed artifacts in
 place (`openapi.json`, `frontend/src/client`, `routeTree.gen.ts`) to verify they're
 current, but applies no lint/format fixes. Its opt-in companion `just fix`
-(`scripts/fix.sh`) does that (`ruff check --fix`, `ruff format`, Prettier,
+does that (`ruff check --fix`, `ruff format`, Prettier,
 `eslint --fix`) — run it, review the diff, then re-run `just check`. The rest of
 the gate has no safe auto-fix.
 

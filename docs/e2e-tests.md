@@ -15,12 +15,12 @@ app's.
 ## Running
 
 ```bash
-just test-e2e    # runs the Playwright suite (deps installed by `just install`)
+just test-e2e    # installs e2e deps, then runs the Playwright suite
 ```
 
-`just test-e2e` runs `pnpm exec playwright test` in `e2e/`. To drive Playwright
-directly for the variants below, `cd e2e` first (`just install` handles the initial
-`pnpm install`).
+`just test-e2e` runs `pnpm install --frozen-lockfile` then `pnpm exec playwright
+test` in `e2e/`. To drive Playwright directly for the variants below, `cd e2e`
+first.
 
 Useful variants (all from `e2e/`):
 
@@ -34,9 +34,8 @@ pnpm exec tsc --noEmit              # type-check the specs (also: pnpm typecheck
 Or just open the **Testing** panel in VS Code: the extension discovers
 `e2e/playwright.config.ts` and lets you run or debug individual tests inline.
 
-The gate (`just check`) runs the same thing in its last step —
-`pnpm install --frozen-lockfile` then `pnpm exec playwright test` — so a green local
-run means a green gate.
+The gate (`just check`) runs this exact recipe (`just test-e2e`) as its last step,
+so a green local run means a green gate.
 
 **axe-core** (`@axe-core/playwright`) — `tests/accessibility.spec.ts` runs it over
 every rendered page and fails on broken markup (dangling labels, duplicate ids,
@@ -65,9 +64,10 @@ started by hand:
 - **The browser is the baked Chromium** at `/ms-playwright`
   (`PLAYWRIGHT_BROWSERS_PATH`, set in the devcontainer image). `@playwright/test`
   is pinned to the **same version** the Dockerfile bakes (`playwright==1.61.0`),
-  so no browser is ever downloaded and the tests run offline. `check.sh` step 2
-  fails if the Dockerfile pin and `e2e/package.json` drift — keep them in
-  lockstep (and rebuild the devcontainer image when you bump the Dockerfile).
+  so no browser is ever downloaded and the tests run offline. `just test-e2e`
+  (and so `just check`, which calls it) fails before running anything if the
+  Dockerfile pin and `e2e/package.json` drift — keep them in lockstep (and
+  rebuild the devcontainer image when you bump the Dockerfile).
 
 ## Writing a test
 

@@ -1,7 +1,7 @@
 """Export the FastAPI OpenAPI schema to ``openapi.json`` at the repo root.
 
 The frontend's typed API client is generated from this committed file, offline and
-deterministically (``frontend/openapi-ts.config.ts`` reads it). ``check.sh``
+deterministically (``frontend/openapi-ts.config.ts`` reads it). ``just check``
 regenerates this file and the client and fails if either drifts from the backend,
 so the committed schema always matches the routes and Pydantic models.
 """

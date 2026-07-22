@@ -21,12 +21,12 @@ Before you consider **any** change complete, run:
 just check
 ```
 
-It must exit 0. `just check` runs `scripts/check.sh`, which does, in order: the
-**Python backend** gate (secret scan, dependency audit, `ruff` format + lint,
-`pyrefly` strict types, `deptry`, `import-linter`, the pytest suite,
+It must exit 0. `just check` (a recipe in the [`justfile`](justfile)) does, in
+order: the **Python backend** gate (secret scan, dependency audit, `ruff` format +
+lint, `pyrefly` strict types, `deptry`, `import-linter`, the pytest suite,
 `alembic check`), then the **frontend** gate (API-client drift guard, Prettier,
 ESLint, `tsc`, Knip, dependency-cruiser, the production build), then the
-**Playwright e2e** suite (which boots both tiers). The script is the source of
+**Playwright e2e** suite (which boots both tiers). The recipe is the source of
 truth for the exact steps — read it, or see
 [docs/quality-gate.md](docs/quality-gate.md) for what each tier is for.
 
@@ -56,14 +56,14 @@ The common commands live in one place — the [`justfile`](justfile) at the repo
 root, run with [`just`](https://just.systems) (a Makefile-like task runner, baked
 into the devcontainer image). It's the central, discoverable entrypoint; prefer it
 over remembering the raw `uv`/`pnpm`/`alembic` invocations. Run `just` (or
-`just --list`) to see every recipe. The recipes are thin wrappers — they delegate
-to `scripts/check.sh`, `scripts/fix.sh`, `uv`, `pnpm`, and `alembic`, which stay the
-source of truth.
+`just --list`) to see every recipe. The recipes are thin wrappers over `uv`,
+`pnpm`, and `alembic` — `check` and `fix` compose the other recipes rather than
+duplicating their steps, so the justfile itself stays the source of truth.
 
 ```bash
 just                 # list all recipes
 just install         # install backend (uv) + frontend & e2e (pnpm) deps
-just check           # the full quality gate (runs scripts/check.sh)
+just check           # the full quality gate
 just fix             # apply the mechanical auto-fixes, then re-run just check
 just backend         # run the API on :8000 (auto-reload)
 just frontend        # run the frontend dev server on :3000
@@ -87,7 +87,7 @@ just gen-client      # regenerate openapi.json + the typed frontend client
   migrations (see "Database migrations")
 - **Tests:** pytest (unit + integration, coverage via pytest-cov); Playwright in
   TypeScript for browser e2e in `e2e/` — see [docs/e2e-tests.md](docs/e2e-tests.md)
-- **Quality tooling** (all run by `check.sh`): backend — Pyrefly (strict types),
+- **Quality tooling** (all run by `just check`): backend — Pyrefly (strict types),
   Ruff (`select = ["ALL"]` + `ruff format`), deptry, import-linter (layering),
   gitleaks + `uv audit` (security); frontend — strict `tsc`, typescript-eslint
   (strict, type-checked) with the TanStack Router/Query and Tailwind plugins,
@@ -112,7 +112,7 @@ justfile        `just` recipes — the central entrypoint for common commands
 tests/          Python unit + integration tests (+ conftest DB/client fixtures)
 e2e/            self-contained TypeScript Playwright project — see docs/e2e-tests.md
 migrations/     Alembic migration environment + committed revisions
-scripts/        check.sh (the gate), fix.sh, export-openapi.py, e2e seeder
+scripts/        export-openapi.py, e2e seeder
 .devcontainer/  image (uv + just + Node/pnpm + Chromium) + compose (app + Postgres)
 docs/           extra docs (quality gate, migrations, frontend, e2e, security, ...)
 ```
@@ -196,7 +196,7 @@ generation + drift guard, selective SSR, and how to add UI components.
 
 ## Security checks
 
-`check.sh` runs secret scanning (gitleaks, full git history) and dependency
+`just check` runs secret scanning (gitleaks, full git history) and dependency
 vulnerability scanning (`uv audit`). See
 [docs/security-checks.md](docs/security-checks.md) for how each works and
 what to do when one flags something.
@@ -207,6 +207,6 @@ The browser e2e tests are a self-contained **TypeScript Playwright** project in
 `e2e/`. It boots **both** tiers — the FastAPI API and the TanStack Start frontend
 (which proxies `/api` to the API) — against a test database, and seeds a verified
 user in its global setup. Chromium is baked into the devcontainer image and driven
-offline; keep the `@playwright/test` pin in lockstep with the Dockerfile (check.sh
-guards this). See [docs/e2e-tests.md](docs/e2e-tests.md) for how to run and write
+offline; keep the `@playwright/test` pin in lockstep with the Dockerfile (`just
+check` guards this). See [docs/e2e-tests.md](docs/e2e-tests.md) for how to run and write
 them, and the baked-browser details.

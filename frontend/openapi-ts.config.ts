@@ -2,7 +2,7 @@ import { defineConfig } from "@hey-api/openapi-ts";
 
 // Generates the typed API client from the backend's committed OpenAPI schema
 // (../openapi.json, exported by scripts/export-openapi.py). Offline and
-// deterministic: check.sh regenerates this and fails if src/client drifts.
+// deterministic: `just check` regenerates this and fails if src/client drifts.
 export default defineConfig({
   input: "../openapi.json",
   output: {

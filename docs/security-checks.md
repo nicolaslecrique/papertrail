@@ -11,7 +11,7 @@
   once it's in history.
 - **Dependency vulnerabilities:** `uv audit` scans `uv.lock` against the OSV
   database. It's a native `uv` subcommand (currently preview, hence
-  `--preview-features audit-command` in `check.sh`) that reuses `uv`'s already-
+  `--preview-features audit-command` in the `check` recipe) that reuses `uv`'s already-
   resolved lockfile instead of re-resolving dependencies, so it's fast. If it
   flags a real vulnerability, bump the affected dependency (`uv lock --upgrade-package
   <pkg>`); don't ignore or suppress a finding without understanding it first.

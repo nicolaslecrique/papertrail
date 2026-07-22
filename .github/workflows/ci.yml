@@ -1,7 +1,7 @@
 name: CI
 
-# Runs the same gate as local dev - `just check`, which runs scripts/check.sh -
-# on every push, inside the exact same devcontainer image used locally
+# Runs the same gate as local dev - `just check` (see the justfile) - on every
+# push, inside the exact same devcontainer image used locally
 # (.devcontainer/Dockerfile, via the CI-only .devcontainer/ci/devcontainer.json -
 # see its comments for why it's a separate file from the dev one). Building the
 # image is what installs uv/gitleaks/just/Node-pnpm/Playwright's Chromium, so

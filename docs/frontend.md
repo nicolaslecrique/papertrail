@@ -73,7 +73,7 @@ holds the theme tokens) and the `@/*` alias.
 
 ## Tooling (strict)
 
-All run by `check.sh` (and locally via the `package.json` scripts):
+All run by `just check` (and locally via the `package.json` scripts):
 
 - **`tsc --noEmit`** — strict, plus `noUncheckedIndexedAccess` / `noImplicitOverride`.
 - **ESLint** (`eslint . --max-warnings 0`) — typescript-eslint `strictTypeChecked`
