@@ -52,7 +52,8 @@
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
         "bradlc.vscode-tailwindcss",
-        "ms-ossdata.vscode-pgsql"
+        "ms-ossdata.vscode-pgsql",
+        "skellock.just"
       ],
       "settings": {
         "python.defaultInterpreterPath": "/workspace/.venv/bin/python",
