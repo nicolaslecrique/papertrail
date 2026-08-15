@@ -194,6 +194,14 @@ treated as vendored (kept pristine so they can be updated from the shadcn
 reference). See [docs/frontend.md](docs/frontend.md) for the build, the client
 generation + drift guard, selective SSR, and how to add UI components.
 
+## Coding guidelines
+
+Project-specific style / best-practice rules beyond what the linters enforce live
+in [docs/coding-guidelines.md](docs/coding-guidelines.md) — currently just one:
+don't give a field or argument a default value unless it's correct in every
+context; if the right value genuinely differs by environment or call site, make
+it required and supply each context's value explicitly instead.
+
 ## Security checks
 
 `just check` runs secret scanning (gitleaks, full git history) and dependency

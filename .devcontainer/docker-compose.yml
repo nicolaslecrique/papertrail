@@ -6,11 +6,11 @@ services:
     volumes:
       - ..:/workspace:cached
     command: sleep infinity
-    environment:
-      DATABASE_URL: postgresql://papertrail:papertrail@db:5432/papertrail
-      # Dev-only placeholder for the JWT signing secret. Override with a strong,
-      # random value in any real deployment (it must never be this string).
-      AUTH_SECRET: dev-only-not-a-real-secret-change-me
+    # Dev-only placeholder values (never real secrets/prod config) - see ../.env.dev
+    # for what's set and why. app/config.py's Settings has no default for these, so
+    # every context (this container, tests, e2e, a real deployment) must supply its
+    # own values explicitly instead of one silently standing in for all of them.
+    env_file: ../.env.dev
     depends_on:
       db:
         condition: service_healthy
