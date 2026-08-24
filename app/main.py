@@ -23,9 +23,9 @@ def _operation_id(route: APIRoute) -> str:
     """Use each route's name as its OpenAPI ``operationId``.
 
     FastAPI's default appends the HTTP method and full path, which produces
-    unwieldy generated client names (``registerApiAuthRegisterPost``). The route
-    names are already unique here, so the bare name yields clean SDK symbols
-    (``register``, ``usersCurrentUser``, ...) for @hey-api/openapi-ts.
+    unwieldy generated client names (``greetingApiGreetingGet``). The route names
+    are already unique here, so the bare name yields clean SDK symbols
+    (``greeting``, ...) for @hey-api/openapi-ts.
 
     ``operationId`` must be globally unique or the generated client silently
     collapses two routes, so a collision is turned into a loud import-time error.
@@ -44,10 +44,9 @@ def _operation_id(route: APIRoute) -> str:
 def _configure_logging() -> None:
     """Surface application logs at INFO on the console.
 
-    uvicorn only configures its own loggers, so without this the app's INFO logs
-    (notably the dev "console" email backend, which logs the verification and
-    password-reset links) would be swallowed by the root logger's WARNING default.
-    Records still propagate to the root logger so pytest's caplog keeps working.
+    uvicorn only configures its own loggers, so without this the app's own INFO
+    logs would be swallowed by the root logger's WARNING default. Records still
+    propagate to the root logger so pytest's caplog keeps working.
     """
     app_logger = logging.getLogger("papertrail")
     app_logger.setLevel(logging.INFO)

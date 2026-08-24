@@ -21,20 +21,15 @@ Making the value required turns that same mistake into an immediate, loud
 failure at construction time.
 
 **Worked example:** `app/config.py`'s `Settings` used to give every field a
-"development-friendly default." That's fine for values that really are the same
-everywhere (`access_token_lifetime_seconds`, `cookie_samesite`) — but
-`database_url`, `auth_secret`, `base_url`, `email_backend`, `cookie_secure`, and
-`environment` itself only had *dev* values as their default. A production
-deployment that forgot to override one of them wouldn't fail to boot — it would
-boot with a devcontainer database URL, a placeholder JWT secret, or (worst case)
-silently think it was still `dev` and skip the production guard entirely. Those
-fields now have no default; the devcontainer supplies its values from the
-committed `.env.dev` (wired through `.devcontainer/docker-compose.yml`), and
-tests/e2e set their own explicitly — so every context states its own answer
-instead of one of them being assumed for all.
+"development-friendly default," including `database_url`. A production deployment
+that forgot to override it wouldn't fail to boot — it would boot pointed at a
+devcontainer database URL. `database_url` now has no default: the devcontainer
+supplies its value from the committed `.env.dev` (wired through
+`.devcontainer/docker-compose.yml`), and tests/e2e set their own explicitly — so
+every context states its own answer instead of one of them being assumed for all.
 
-This isn't a blanket ban on defaults — `pwned_check_enabled: bool = True` is a
-default that's correct in every context (secure by default; the few contexts
-that need to go offline opt out explicitly). The test is not "does this field
+This isn't a blanket ban on defaults. A value that really is the same everywhere
+(a timeout, a page size, a secure-by-default feature flag that the odd context
+opts out of explicitly) should keep its default. The test is not "does this field
 have a default," it's "would this default ever be the *wrong* value for some
 caller, silently."

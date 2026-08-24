@@ -22,8 +22,6 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
   ],
-  // Seed the verified user (via the app's own UserManager) before any test runs.
-  globalSetup: "./support/global-setup",
   // Boot both tiers: the FastAPI JSON API against the test database, and the
   // TanStack Start frontend (which proxies /api to that API via API_PROXY_TARGET).
   // Tests hit the frontend origin (BASE_URL).

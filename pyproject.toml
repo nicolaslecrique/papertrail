@@ -7,17 +7,11 @@ requires-python = ">=3.12"
 dependencies = [
     "fastapi",
     "uvicorn[standard]",
-    "python-multipart",
-    "fastapi-users[sqlalchemy]>=15.0.5",
-    "fastapi-users-db-sqlalchemy>=7.0.0",
     "sqlalchemy>=2.0.51",
     "asyncpg>=0.31.0",
     "alembic>=1.18.5",
     "pydantic-settings>=2.14.2",
-    "aiosmtplib>=5.1.2",
     "pydantic>=2.13.4",
-    "httpx>=0.28.1",
-    "disposable-email-domains>=0.0.220",
 ]
 
 [dependency-groups]
@@ -29,6 +23,7 @@ dev = [
     "deptry>=0.25.1",
     "import-linter>=2.13",
     "pytest-asyncio>=1.4.0",
+    "httpx>=0.28.1",
 ]
 
 [tool.uv]
@@ -42,8 +37,8 @@ package = false
 # root on sys.path for `import app` and only collect tests from tests/.
 pythonpath = ["."]
 testpaths = ["tests"]
-# Auto-detect async tests/fixtures (no @pytest.mark.asyncio needed) — the auth
-# flows are async. Session-scoped DB setup uses asyncio.run so no session-loop
+# Auto-detect async tests/fixtures (no @pytest.mark.asyncio needed) — the database
+# session is async. Session-scoped DB setup uses asyncio.run so no session-loop
 # config is required; per-test engines use NullPool to stay loop-agnostic.
 asyncio_mode = "auto"
 # Coverage is measured on every run and printed (with the missing line numbers),
@@ -93,8 +88,6 @@ ignore = [
 ]
 "tests/**" = [
     "S101",    # asserts are the point of a test
-    "S105",    # test fixtures use literal passwords/tokens as data
-    "S106",    # ditto, passed as keyword arguments
     "PLR2004", # magic values (200, ...) are fine in test assertions
     "INP001",  # tests/ is intentionally not a package
     "D100",    # module docstrings not required for tests
@@ -114,10 +107,9 @@ ignore = [
 
 [tool.deptry.per_rule_ignores]
 # DEP002 = declared but never imported. These are legitimately not imported:
-#   uvicorn        - the ASGI server, launched from the CLI / conftest, not a lib
-#   python-multipart - pulled in *by* FastAPI to parse form posts; never imported
-#   asyncpg        - the async Postgres driver; referenced only via the DB URL
-DEP002 = ["uvicorn", "python-multipart", "asyncpg"]
+#   uvicorn - the ASGI server, launched from the CLI / e2e config, not a library
+#   asyncpg - the async Postgres driver; referenced only via the DB URL
+DEP002 = ["uvicorn", "asyncpg"]
 
 # ---------------------------------------------------------------------------
 # import-linter — architecture contracts. Enforces the layered design:

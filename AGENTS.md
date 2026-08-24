@@ -77,8 +77,8 @@ just gen-client      # regenerate openapi.json + the typed frontend client
 ## Tech stack
 
 - **Language / deps:** Python, managed with `uv` (`pyproject.toml` + `uv.lock`)
-- **Backend:** FastAPI JSON REST API; auth via **fastapi-users** (JWT in an httponly
-  cookie). No server-rendered HTML — the API only speaks JSON under `/api`.
+- **Backend:** FastAPI JSON REST API. No server-rendered HTML — the API only
+  speaks JSON under `/api`.
 - **Frontend:** **React 19 + TanStack Start** (SSR) in `frontend/`, styled with
   **Tailwind CSS v4** + **shadcn/ui**; server state via **TanStack Query**; the API
   client is generated from the backend's OpenAPI schema by **@hey-api/openapi-ts**.
@@ -102,7 +102,7 @@ app/            the FastAPI REST API, split into layers (dependencies point down
   main.py         composition root: builds the FastAPI app, wires the layers
   domain/         pure-Python business logic (no framework imports)
   db/             the only layer that talks to Postgres (SQLAlchemy: engine, models, migrate)
-  web/            presentation: FastAPI routers (JSON), auth wiring
+  web/            presentation: FastAPI routers (JSON)
 frontend/       React / TanStack Start SPA+SSR app — see docs/frontend.md
   src/routes/     file-based routes (pages)
   src/client/     generated, typed API client (owned by @hey-api/openapi-ts)
@@ -213,8 +213,8 @@ what to do when one flags something.
 
 The browser e2e tests are a self-contained **TypeScript Playwright** project in
 `e2e/`. It boots **both** tiers — the FastAPI API and the TanStack Start frontend
-(which proxies `/api` to the API) — against a test database, and seeds a verified
-user in its global setup. Chromium is baked into the devcontainer image and driven
+(which proxies `/api` to the API) — against a test database. Chromium is baked
+into the devcontainer image and driven
 offline; keep the `@playwright/test` pin in lockstep with the Dockerfile (`just
 check` guards this). See [docs/e2e-tests.md](docs/e2e-tests.md) for how to run and write
 them, and the baked-browser details.

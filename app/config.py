@@ -3,15 +3,13 @@
 A shared kernel module that is deliberately *not* part of the web/domain/db
 layer stack: any layer may import it. It depends only on pydantic, so it can
 never drag a web framework (or SQLAlchemy) into the lower layers. Values come
-from environment variables. Fields whose correct value genuinely differs by
-context (``environment``, ``database_url``, ``auth_secret``, ``base_url``,
-``email_backend``, ``cookie_secure``) have no default — a value must be supplied
-by whoever boots the app, instead of one context's value silently standing in for
-every other. In the devcontainer that's ``.env.dev`` (loaded via
-``.devcontainer/docker-compose.yml``); tests and e2e set their own via
-``os.environ``/the Playwright config. See docs/coding-guidelines.md. The
-remaining fields keep defaults because they're universal policy choices, not
-per-environment values.
+from environment variables.
+
+``database_url`` has no default — a value must be supplied by whoever boots the
+app, instead of one context's value silently standing in for every other. In the
+devcontainer that's ``.env.dev`` (loaded via ``.devcontainer/docker-compose.yml``);
+tests and e2e set their own via ``os.environ``/the Playwright config. See
+docs/coding-guidelines.md.
 
 Access the settings through :func:`get_settings` (cached, so the environment is
 read once) rather than a module-level singleton — this lets the web layer inject
@@ -19,14 +17,8 @@ it as a FastAPI dependency and lets tests override it.
 """
 
 from functools import lru_cache
-from typing import Literal, Self
 
-from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-# The obvious placeholder for the JWT signing secret. Kept as a named constant so
-# the production guard below can refuse it. It must never sign real tokens.
-PLACEHOLDER_AUTH_SECRET = "dev-only-not-a-real-secret-change-me"  # noqa: S105
 
 
 class Settings(BaseSettings):
@@ -34,49 +26,8 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    # No default: which environment this is isn't guessable. "dev" relaxes the
-    # production guard below; set ENVIRONMENT=prod in any real deployment to turn
-    # it on. (An implicit "dev" default here would be the most dangerous one of
-    # all: a prod deployment that forgot to set this would silently run *without*
-    # the guard that catches the placeholder secret and insecure cookies below.)
-    environment: Literal["dev", "prod"]
-
     # Database. No default - genuinely differs per environment (see .env.dev).
     database_url: str
-
-    # Token signing secret. No default; the production guard refuses the
-    # PLACEHOLDER_AUTH_SECRET value so a misconfigured prod fails fast instead of
-    # signing forgeable JWTs with a public secret.
-    auth_secret: str
-    access_token_lifetime_seconds: int = 60 * 60 * 24  # 1 day
-
-    # Cookie transport. cookie_secure has no default - it MUST be True in
-    # production (HTTPS only) and is normally False for plain-HTTP local dev; the
-    # production guard enforces it, and SameSite=None always requires Secure.
-    cookie_name: str = "papertrailauth"
-    cookie_secure: bool
-    cookie_samesite: Literal["lax", "strict", "none"] = "lax"
-
-    # Public base URL used to build the verification / reset links in emails. These
-    # links are opened in the browser, so this points at the *frontend* origin (the
-    # TanStack Start server), whose /verify and /reset-password routes call the API.
-    # No default - localhost:3000 is only correct in dev.
-    base_url: str
-
-    # Breach check at sign-up. When True, the chosen password is checked against
-    # Have I Been Pwned's k-Anonymity range API and rejected if it appears in a
-    # known breach. Disable (PWNED_CHECK_ENABLED=false) for offline dev / tests.
-    pwned_check_enabled: bool = True
-
-    # Email delivery. "console" logs the link (dev/test); "smtp" sends for real.
-    # No default - which one is correct differs per environment.
-    email_backend: Literal["console", "smtp"]
-    email_from: str = "no-reply@papertrail.local"
-    smtp_host: str = "localhost"
-    smtp_port: int = 1025
-    smtp_username: str = ""
-    smtp_password: str = ""
-    smtp_start_tls: bool = False
 
     @property
     def async_database_url(self) -> str:
@@ -90,28 +41,6 @@ class Settings(BaseSettings):
         if self.database_url.startswith(prefix):
             return "postgresql+asyncpg://" + self.database_url[len(prefix) :]
         return self.database_url
-
-    @model_validator(mode="after")
-    def _check_secure_configuration(self) -> Self:
-        """Reject browser-invalid and unsafe-for-production configurations.
-
-        ``SameSite=None`` is invalid without ``Secure`` in every modern browser, so
-        it is refused regardless of environment. In ``prod`` the placeholder auth
-        secret and a non-secure cookie are refused too, so a deployment that forgot
-        to set ``AUTH_SECRET`` / ``COOKIE_SECURE`` fails to boot instead of running
-        with forgeable sessions.
-        """
-        if self.cookie_samesite == "none" and not self.cookie_secure:
-            msg = "cookie_samesite='none' requires cookie_secure=True."
-            raise ValueError(msg)
-        if self.environment == "prod":
-            if self.auth_secret == PLACEHOLDER_AUTH_SECRET:
-                msg = "AUTH_SECRET must be overridden in production."
-                raise ValueError(msg)
-            if not self.cookie_secure:
-                msg = "COOKIE_SECURE must be True in production."
-                raise ValueError(msg)
-        return self
 
 
 @lru_cache

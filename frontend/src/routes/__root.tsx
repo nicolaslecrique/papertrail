@@ -36,17 +36,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             <Link to="/" className="font-semibold">
               papertrail
             </Link>
-            <div className="ml-auto flex gap-4">
-              <Link to="/login" className="hover:underline">
-                Sign in
-              </Link>
-              <Link to="/register" className="hover:underline">
-                Register
-              </Link>
-              <Link to="/dashboard" className="hover:underline">
-                Dashboard
-              </Link>
-            </div>
           </nav>
         </header>
         <main className="mx-auto max-w-3xl p-4">{children}</main>

@@ -10,21 +10,17 @@ and **shadcn/ui**. Package manager is **pnpm**.
 ```
 Browser ─▶ TanStack Start (Nitro) server ─serves─▶ React app
    │           └─ proxies /api ─▶ FastAPI (uvicorn) ─▶ Postgres
-   └──────────────── one origin (the httponly auth cookie stays first-party) ──┘
+   └──────────────────────────── one origin ─────────────────────────────────┘
 ```
 
 - **Same origin.** The browser only ever talks to the Start server; `/api` is
   **proxied** to FastAPI. Dev uses Nitro's `devProxy`, production bakes the same
   rule via Nitro `routeRules` (both in `vite.config.ts`, target overridable with
-  `API_PROXY_TARGET`). This keeps the httponly JWT cookie first-party, so no CORS
-  and no token handling in JS.
-- **Selective SSR.** Public/content routes are server-rendered (so future
-  per-record pages are search-indexable and produce rich link previews); the
-  interactive auth screens and dashboard opt out with `ssr: false` (they run in the
-  browser, where the cookie is available). See any route in `src/routes/`.
-- **Auth.** Login/logout/register/verify/reset all go through the generated client
-  to fastapi-users' endpoints; the dashboard's `beforeLoad` calls `/api/users/me`
-  and redirects to `/login` on 401.
+  `API_PROXY_TARGET`). So there is no cross-origin request: no CORS setup, and no
+  absolute API URL baked into the client bundle.
+- **Selective SSR.** Routes are server-rendered by default (so future per-record
+  pages are search-indexable and produce rich link previews). A route that only
+  makes sense in the browser opts out with `ssr: false`.
 
 ## Run it
 
@@ -40,8 +36,8 @@ Run the backend separately with `just backend`, or both at once with `just dev`
 
 `src/client/` is **generated** from the committed `openapi.json` at the repo root —
 never edit it by hand. TanStack Query artifacts (`…Options()` / `…Mutation()`) come
-from the `@tanstack/react-query` plugin; baseUrl + `credentials: "include"` are set
-in `src/lib/api-config.ts`. Config lives in `openapi-ts.config.ts`.
+from the `@tanstack/react-query` plugin; the baseUrl is set in
+`src/lib/api-config.ts`. Config lives in `openapi-ts.config.ts`.
 
 When you change a backend route or Pydantic model, regenerate both the schema and
 the client, then commit them:

@@ -1,9 +1,8 @@
-"""ORM models. The user table schema is provided by fastapi-users."""
+"""ORM models.
 
-from fastapi_users_db_sqlalchemy import SQLAlchemyBaseUserTableUUID
-
-from app.db.engine import Base
-
-
-class User(SQLAlchemyBaseUserTableUUID, Base):
-    """A registered user (id, email, hashed_password, is_active/superuser/verified)."""
+Empty for now: the app has no tables yet. Add models here (subclassing
+``app.db.engine.Base``), then generate the matching Alembic migration with
+``just migration "describe the change"`` — ``just check`` fails if the two drift
+apart. ``migrations/env.py`` imports this module so every model registers itself
+on ``Base.metadata`` before autogenerate compares it against the database.
+"""

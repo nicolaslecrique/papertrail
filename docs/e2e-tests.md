@@ -50,17 +50,9 @@ started by hand:
 - **`webServer`** boots **both tiers** (`support/config.ts` holds the ports and
   env): FastAPI via `uv run uvicorn app.main:app`, and the frontend via
   `pnpm exec vite dev` in `frontend/` with `API_PROXY_TARGET` pointed at the test
-  API so `/api` is proxied there. Both are pointed at a dedicated `papertrail_test`
-  database / throwaway `AUTH_SECRET`, log emails to the console, and skip the
-  network breach check. Tests drive the **frontend origin** (`baseURL`); both
-  servers are torn down when the run ends.
-- **`globalSetup`** (`support/global-setup.ts`) shells out to
-  `uv run python scripts/e2e_seed.py`, which creates the test database + schema
-  and seeds one active, **verified** user. The seeder reuses the app's own
-  `UserManager`, so the password is hashed exactly as real registration would —
-  the alternative (a raw SQL insert) can't reproduce that hash. The seeded
-  credentials live in `support/credentials.ts`, the single source shared between
-  the seeder (via env) and the login spec.
+  API so `/api` is proxied there. The API is pointed at a dedicated
+  `papertrail_test` database, so a run never touches the dev database. Tests drive
+  the **frontend origin** (`baseURL`); both servers are torn down when the run ends.
 - **The browser is the baked Chromium** at `/ms-playwright`
   (`PLAYWRIGHT_BROWSERS_PATH`, set in the devcontainer image). `@playwright/test`
   is pinned to the **same version** the Dockerfile bakes (`playwright==1.61.0`),
@@ -85,12 +77,9 @@ test("home greeting updates from the API", async ({ page }) => {
 });
 ```
 
-Two things to know about the React UI:
+One thing to know about the React UI:
 
-- **Hydration.** The auth screens are client-rendered (`ssr: false`), so
-  `getByLabel(...)` naturally waits for them to render before interacting. On the
-  server-rendered home page, wait for a client-driven change (e.g. the greeting
-  text) before typing, so the input's handlers are wired up.
-- **Auth.** For a test that needs a session, log in with the seeded account from
-  `support/credentials.ts` (see `tests/auth.spec.ts`) — the user is already
-  verified, so no email-confirmation step is needed.
+- **Hydration.** On a server-rendered page, wait for a client-driven change (e.g.
+  the greeting text) before typing, so the input's handlers are wired up. A
+  client-rendered route (`ssr: false`) needs no such care: `getByLabel(...)`
+  naturally waits for it to render before interacting.

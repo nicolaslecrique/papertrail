@@ -1,38 +1,27 @@
-"""Shared pytest fixtures: an async test database and an HTTP client.
+"""Shared pytest fixtures: a migrated test database and a session on it.
 
-The app is pointed at a dedicated ``papertrail_test`` database (created on demand)
-and a throwaway auth secret. These env vars are set *before* importing the app
-because the auth backend reads settings while it is being assembled at import time
-(``app.web.auth`` builds its cookie transport from :func:`get_settings`), and
-:func:`get_settings` caches the first read.
+The app is pointed at a dedicated ``papertrail_test`` database (created on demand).
+The env var is set *before* importing the app so the first (cached) settings read
+picks it up rather than the devcontainer's dev database.
 """
 
 import asyncio
 import os
 import threading
 from collections.abc import AsyncIterator, Coroutine
-from dataclasses import dataclass, field
 
 os.environ["DATABASE_URL"] = os.environ.get(
     "TEST_DATABASE_URL",
     "postgresql://papertrail:papertrail@db:5432/papertrail_test",
 )
-os.environ["AUTH_SECRET"] = "test-secret-not-for-production-0123456789"
-os.environ["EMAIL_BACKEND"] = "console"
 
 import pytest
 import pytest_asyncio
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.config import get_settings
-from app.db.engine import get_async_session
 from app.db.migrate import ensure_database_exists, upgrade_to_head
-from app.domain.email import get_email_sender
-from app.domain.pwned import get_pwned_checker
-from app.main import app
 
 
 def _run[T](coro: Coroutine[object, object, T]) -> T:
@@ -63,55 +52,6 @@ _test_engine = create_async_engine(
 _test_session_maker = async_sessionmaker(_test_engine, expire_on_commit=False)
 
 
-# --------------------------------------------------------------------------- #
-# Capturing email sender — records the tokens the auth flows would email out.
-# --------------------------------------------------------------------------- #
-@dataclass
-class SentEmail:
-    """One captured outbound email."""
-
-    kind: str
-    email: str
-    token: str
-
-
-@dataclass
-class CapturingEmailSender:
-    """An ``EmailSender`` that records what it would have sent."""
-
-    sent: list[SentEmail] = field(default_factory=list)
-
-    async def send_verification(self, email: str, token: str) -> None:
-        """Record a verification email."""
-        self.sent.append(SentEmail("verify", email, token))
-
-    async def send_password_reset(self, email: str, token: str) -> None:
-        """Record a password-reset email."""
-        self.sent.append(SentEmail("reset", email, token))
-
-    def last_token(self, kind: str) -> str:
-        """Return the most recent token of the given kind."""
-        return next(email.token for email in reversed(self.sent) if email.kind == kind)
-
-
-# --------------------------------------------------------------------------- #
-# Stub breach checker — keeps the HIBP lookup off the network in tests. Set
-# ``times`` before a request to simulate a password found in a breach.
-# --------------------------------------------------------------------------- #
-@dataclass
-class StubPwnedChecker:
-    """A ``PwnedPasswordChecker`` that returns a fixed, controllable count."""
-
-    times: int = 0
-
-    async def times_pwned(self, password: str) -> int:  # noqa: ARG002
-        """Report the configured breach count for any password."""
-        return self.times
-
-
-# --------------------------------------------------------------------------- #
-# Database lifecycle.
-# --------------------------------------------------------------------------- #
 @pytest.fixture(scope="session", autouse=True)
 def _prepare_database() -> None:
     """Create the test database and bring its schema up to head once per session.
@@ -124,45 +64,8 @@ def _prepare_database() -> None:
     upgrade_to_head()
 
 
-async def _truncate_users() -> None:
-    async with _test_engine.begin() as conn:
-        await conn.execute(text('TRUNCATE TABLE "user" CASCADE'))
-
-
-# --------------------------------------------------------------------------- #
-# HTTP client + dependency overrides (async integration tests).
-# --------------------------------------------------------------------------- #
-@pytest.fixture
-def email_sender() -> CapturingEmailSender:
-    """Return a fresh capturing email sender, shared with the app via DI."""
-    return CapturingEmailSender()
-
-
-@pytest.fixture
-def pwned_checker() -> StubPwnedChecker:
-    """Return a stub breach checker (not pwned by default), shared via DI."""
-    return StubPwnedChecker()
-
-
 @pytest_asyncio.fixture
-async def client(
-    email_sender: CapturingEmailSender, pwned_checker: StubPwnedChecker
-) -> AsyncIterator[AsyncClient]:
-    """Yield an httpx client bound to the app, using the test DB + fake email."""
-
-    async def _session_override() -> AsyncIterator[AsyncSession]:
-        async with _test_session_maker() as session:
-            yield session
-
-    app.dependency_overrides[get_async_session] = _session_override
-    app.dependency_overrides[get_email_sender] = lambda: email_sender
-    app.dependency_overrides[get_pwned_checker] = lambda: pwned_checker
-    transport = ASGITransport(app=app)
-    try:
-        async with AsyncClient(
-            transport=transport, base_url="http://testserver"
-        ) as http:
-            yield http
-    finally:
-        app.dependency_overrides.clear()
-        await _truncate_users()
+async def session() -> AsyncIterator[AsyncSession]:
+    """Yield a session on the migrated test database."""
+    async with _test_session_maker() as db_session:
+        yield db_session
